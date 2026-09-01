@@ -1,0 +1,21 @@
+*.sv     text eol=lf
+*.svh    text eol=lf
+*.v      text eol=lf
+*.vh     text eol=lf
+*.tcl    text eol=lf
+*.sdc    text eol=lf
+*.prj    text eol=lf
+*.f      text eol=lf
+*.md     text eol=lf
+*.yaml   text eol=lf
+*.yml    text eol=lf
+*.csv    text eol=lf
+*.json   text eol=lf
+*.sh     text eol=lf
+
+*.fsdb   filter=lfs diff=lfs merge=lfs -text
+*.vpd    filter=lfs diff=lfs merge=lfs -text
+*.bit    filter=lfs diff=lfs merge=lfs -text
+*.bin    filter=lfs diff=lfs merge=lfs -text
+*.mcs    filter=lfs diff=lfs merge=lfs -text
+*.pdf    filter=lfs diff=lfs merge=lfs -text

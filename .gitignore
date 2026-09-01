@@ -1,0 +1,108 @@
+# =====================================================================
+# CAN2B Controller - .gitignore
+# Check in SOURCE (RTL, scripts, SDC, waivers, docs) and SIGNED-OFF
+# EVIDENCE (final reports). Ignore SCRATCH (tool run dirs, caches,
+# dumps). Every flow/<tool>/run/ is scratch by design; every
+# flow/<tool>/reports/ is evidence and is force-kept below.
+# =====================================================================
+
+# ---------- VCS / Synopsys simulation ----------
+csrc/
+simv
+simv.daidir/
+*.vpd
+*.fsdb
+*.vcd
+*.wlf
+ucli.key
+DVEfiles/
+vc_hdrs.h
+*.vdb
+*.vdbmeta
+64/
+AN.DB/
+novas.*
+verdiLog/
+.vcs_lib_lock
+inter.vpd
+urgReport/
+build/
+
+# ---------- Design Compiler / generic Synopsys ----------
+*.svf
+*.mr
+*.pvl
+alib-52/
+*.ddc
+work/
+.synopsys_dc.setup.log
+command.log
+default.svf
+*.syn
+*.mapped.v.gz
+
+# ---------- SpyGlass ----------
+spyglass_reports/
+sg_*.log
+*_run_*/
+spyglass_run_*/
+
+# ---------- PrimeTime ----------
+*.tcl.rpt
+pt_shell_command.log
+*.def
+
+# ---------- VC LP / power ----------
+*.upf.log
+power.log
+
+# ---------- FPGA (Vivado/Quartus scratch) ----------
+*.jou
+*.str
+.Xil/
+vivado*.log
+.cache/
+.runs/
+.sim/
+*.dcp
+db/
+incremental_db/
+
+# ---------- General EDA scratch ----------
+*.log
+*.bak
+*.tmp
+*.chk
+.dc.checkpoints/
+
+# ---------- Flow run directories (scratch by convention) ----------
+flow/*/run/
+flow/*/logs/
+
+# ---------- Force-keep signed-off evidence (checked in on purpose) ----------
+!flow/spyglass_lint/reports/
+!flow/spyglass_lint/reports/**
+!flow/spyglass_cdc/reports/
+!flow/spyglass_cdc/reports/**
+!flow/dc/reports/
+!flow/dc/reports/**
+!flow/primetime/reports/
+!flow/primetime/reports/**
+!flow/vclp/reports/
+!flow/vclp/reports/**
+!flow/fpga/bitstreams/*.rpt
+
+# ---------- Editor / OS ----------
+.DS_Store
+*.swp
+.vscode/
+.idea/
+
+# ---------- Large binaries -> use Git LFS instead (see .gitattributes) ----------
+*.bit
+*.bin
+*.mcs
+
+media/
+waveforms/
+docs/
