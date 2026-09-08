@@ -6,9 +6,8 @@ module reset_synchronizer (
     output wire rst_n_sync
 );
 
-    // (* ASYNC_REG = "TRUE" DONT_TOUCH = "TRUE" *) reg S1;
-    // (* ASYNC_REG = "TRUE" DONT_TOUCH = "TRUE" *) reg S2;
-    reg S1, S2;
+    (* ASYNC_REG = "TRUE" *) reg S1;
+    (* ASYNC_REG = "TRUE" *) reg S2;
 
     always @(posedge clk or negedge rst_n_async) begin
         if (!rst_n_async) begin

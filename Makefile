@@ -2,8 +2,8 @@ SIM ?= iverilog
 VVP ?= vvp
 GTKWAVE ?= gtkwave
 
-TOP ?= tb_apb_interface
-TB ?= sim/apb_interface/tb_apb_interface.v
+TOP ?= tb_can_top
+TB ?= sim/top/tb_can_top.v
 RTL_SRCS ?= $(shell find src -type f -name '*.v' | sort)
 EXTRA_SRCS ?=
 

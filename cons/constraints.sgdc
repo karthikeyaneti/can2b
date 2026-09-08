@@ -39,8 +39,8 @@ cdc_attribute -name "can_fifo.rd_ptr_gray" -gray
 // 4. FIFO Memory Recognition for CDC & Lint (Waives Ac_unsync02 & STARC Lint)
 //-----------------------------------------------------------------------------
 fifo -memory "fifo_mem" \
-     -wr_clk "can_fifo.wr_clk" \
-     -rd_clk "can_fifo.rd_clk" \
+     -wr_data "can_fifo.wr_data" \
+     -rd_data "can_fifo.rd_data" \
      -wr_ptr "can_fifo.wr_ptr" \
      -rd_ptr "can_fifo.rd_ptr"
 

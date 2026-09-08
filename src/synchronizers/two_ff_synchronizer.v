@@ -10,9 +10,8 @@ module two_ff_synchronizer #(
     output wire [WIDTH-1:0] sync_out
 );
 
-    // (* ASYNC_REG = "TRUE" DONT_TOUCH = "TRUE" *) reg [WIDTH-1:0] S1;
-    // (* ASYNC_REG = "TRUE" DONT_TOUCH = "TRUE" *) reg [WIDTH-1:0] S2;
-    reg [WIDTH-1:0] S1, S2;
+    (* ASYNC_REG = "TRUE" *) reg [WIDTH-1:0] S1;
+    (* ASYNC_REG = "TRUE" *) reg [WIDTH-1:0] S2;
 
     always @(posedge clk or negedge rst_n_sync) begin
         if (!rst_n_sync) begin
