@@ -1,0 +1,36 @@
+// SpyGlass CDC constraints for the two-flop level synchronizers in
+// can_channel_core.
+
+current_design "can_channel_core"
+
+// APB clock is faster than the CAN engine clock.
+clock -name "pclk"     -period 10.0 -edge {0.0 5.0}  -domain "APB"
+clock -name "can_clk"  -period 25.0 -edge {0.0 12.5} -domain "CAN"
+
+reset -name "presetn" -value 0 -async
+reset -name "can_rst_n" -value 0 -async
+
+// All level synchronizers in this top-level design receive CAN-domain
+// signals and resolve them in the APB domain.
+qualifier -from_clk "can_clk" -to_clk "pclk" -dest_reg "tx_busy_sync.S1" "tx_busy_sync.S2"
+qualifier -from_clk "can_clk" -to_clk "pclk" -dest_reg "bus_idle_sync.S1" "bus_idle_sync.S2"
+qualifier -from_clk "can_clk" -to_clk "pclk" -dest_reg "bus_off_sync_inst.S1" "bus_off_sync_inst.S2"
+qualifier -from_clk "can_clk" -to_clk "pclk" -dest_reg "errwrn_sync.S1" "errwrn_sync.S2"
+qualifier -from_clk "can_clk" -to_clk "pclk" -dest_reg "estat_sync.S1" "estat_sync.S2"
+qualifier -from_clk "can_clk" -to_clk "pclk" -dest_reg "tec_sync.S1" "tec_sync.S2"
+qualifier -from_clk "can_clk" -to_clk "pclk" -dest_reg "rec_sync.S1" "rec_sync.S2"
+qualifier -from_clk "can_clk" -to_clk "pclk" -dest_reg "acker_sync.S1" "acker_sync.S2"
+qualifier -from_clk "can_clk" -to_clk "pclk" -dest_reg "berr_sync.S1" "berr_sync.S2"
+qualifier -from_clk "can_clk" -to_clk "pclk" -dest_reg "ster_sync.S1" "ster_sync.S2"
+qualifier -from_clk "can_clk" -to_clk "pclk" -dest_reg "fmer_sync.S1" "fmer_sync.S2"
+qualifier -from_clk "can_clk" -to_clk "pclk" -dest_reg "crcer_sync.S1" "crcer_sync.S2"
+
+input  -name "pclk"    -clock "pclk"
+input  -name "can_clk" -clock "can_clk"
+input  -name "presetn" -clock "pclk"
+input  -name "can_rst_n" -clock "can_clk"
+
+output -name "reg_rdata" -clock "pclk"
+output -name "reg_err"   -clock "pclk"
+output -name "can_irq"   -clock "pclk"
+output -name "can_tx"    -clock "can_clk"
