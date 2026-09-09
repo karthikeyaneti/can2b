@@ -21,8 +21,8 @@ reset -name "can_fifo.wr_rst_n" -value 0 -async
 reset -name "can_fifo.rd_rst_n" -value 0 -async
 
 // Declare reset synchronizers to prevent Reset_sync04 warning
-reset_synchronizer -name "can_fifo.wr_reset_sync.S2" -clock "can_fifo.wr_clk" -inst "can_fifo.wr_reset_sync"
-reset_synchronizer -name "can_fifo.rd_reset_sync.S2" -clock "can_fifo.rd_clk" -inst "can_fifo.rd_reset_sync"
+reset_synchronizer -name "can_fifo.wr_reset_sync.S2" -clock "can_fifo.wr_clk"
+reset_synchronizer -name "can_fifo.rd_reset_sync.S2" -clock "can_fifo.rd_clk"
 
 //-----------------------------------------------------------------------------
 // 3. Synchronizers & Gray-encoded Multi-bit Data
