@@ -49,6 +49,7 @@ module can_top (
     wire [3:0]  reg_wstrb;
     wire [31:0] reg_rdata;
     wire        reg_err;
+    wire [31:0] rx_idr_apb, rx_dlcr_apb, rx_dw1r_apb, rx_dw2r_apb;
 
     // APB Slave Interface Bridge
     apb_interface #(
@@ -74,7 +75,11 @@ module can_top (
         .reg_wdata(reg_wdata),
         .reg_wstrb(reg_wstrb),
         .reg_rdata(reg_rdata),
-        .reg_err  (reg_err)
+        .reg_err  (reg_err),
+        .rx_idr   (rx_idr_apb),
+        .rx_dlcr  (rx_dlcr_apb),
+        .rx_dw1r  (rx_dw1r_apb),
+        .rx_dw2r  (rx_dw2r_apb)
     );
 
     // Channel 0 (CAN0)
@@ -91,6 +96,10 @@ module can_top (
         .reg_wstrb (reg_wstrb),
         .reg_rdata (reg_rdata),
         .reg_err   (reg_err),
+        .rx_idr_apb(rx_idr_apb),
+        .rx_dlcr_apb(rx_dlcr_apb),
+        .rx_dw1r_apb(rx_dw1r_apb),
+        .rx_dw2r_apb(rx_dw2r_apb),
         .can_clk   (can_clk),
         .can_rst_n (can_resetn),
         .can_rx    (can_rx),

@@ -13,6 +13,7 @@ module rx_path_top #(
     output wire [31:0] rx_dw2r,
     output wire        rx_empty,
     output wire        rx_not_empty,
+    output wire        rx_fifo_full,
     output wire        rx_underflow_pulse,
 
     // Acceptance Filter Registers (pclk domain)
@@ -82,7 +83,6 @@ module rx_path_top #(
     assign rx_frame_accepted = rx_frame_valid && filter_match;
 
     // 3. Receive FIFO
-    wire rx_fifo_full;
     rx_fifo #(
         .ADDR_WIDTH(FIFO_ADDR_WIDTH)
     ) u_rx_fifo (

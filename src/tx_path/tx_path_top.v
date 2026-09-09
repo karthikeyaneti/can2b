@@ -49,6 +49,31 @@ module tx_path_top #(
     wire        crc_bit_in;
     wire [14:0] crc_value;
 
+    // The standalone TX wrapper does not own the RX pipeline. Keep the
+    // legacy BSP interface fully connected until TX/RX ownership is split.
+    wire        destuffed_bit_out;
+    wire        destuffed_bit_valid;
+    wire        stuff_bit_dropped;
+    wire        stuff_error;
+    wire        destuff_en;
+    wire        destuff_reset;
+    wire        rx_frame_valid;
+    wire [31:0] rx_frame_idr;
+    wire [31:0] rx_frame_dlcr;
+    wire [31:0] rx_frame_dw1r;
+    wire [31:0] rx_frame_dw2r;
+    wire        rx_ok_pulse;
+    wire [7:0]  tec;
+    wire [7:0]  rec;
+    wire [1:0]  estat;
+    wire        errwrn;
+    wire        bus_off;
+    wire        err_acker;
+    wire        err_berr;
+    wire        err_ster;
+    wire        err_fmer;
+    wire        err_crcer;
+
     // Output bit
     wire        can_tx_bit;
     assign can_tx = can_tx_bit;
@@ -106,6 +131,10 @@ module tx_path_top #(
         .bus_idle           (bus_idle),
         .can_tx_bit         (can_tx_bit),
 
+        .cen                (1'b1),
+        .lback_mode         (1'b0),
+        .sleep_mode         (1'b0),
+
         .tx_frame_avail     (tx_frame_avail),
         .tx_rd_id           (tx_rd_id),
         .tx_rd_ide          (tx_rd_ide),
@@ -119,10 +148,33 @@ module tx_path_top #(
         .crc_bit_in         (crc_bit_in),
         .crc_value          (crc_value),
 
+        .destuffed_bit_out  (destuffed_bit_out),
+        .destuffed_bit_valid(destuffed_bit_valid),
+        .stuff_bit_dropped  (stuff_bit_dropped),
+        .stuff_error        (stuff_error),
+        .destuff_en         (destuff_en),
+        .destuff_reset      (destuff_reset),
+        .rx_frame_valid     (rx_frame_valid),
+        .rx_frame_idr       (rx_frame_idr),
+        .rx_frame_dlcr      (rx_frame_dlcr),
+        .rx_frame_dw1r      (rx_frame_dw1r),
+        .rx_frame_dw2r      (rx_frame_dw2r),
+
         .tx_success_pulse   (tx_success_pulse),
         .tx_error_pulse     (tx_error_pulse),
         .tx_arblst_pulse    (tx_arblst_pulse),
-        .tx_busy            (tx_busy)
+        .rx_ok_pulse        (rx_ok_pulse),
+        .tx_busy            (tx_busy),
+        .tec                (tec),
+        .rec                (rec),
+        .estat              (estat),
+        .errwrn             (errwrn),
+        .bus_off            (bus_off),
+        .err_acker          (err_acker),
+        .err_berr           (err_berr),
+        .err_ster           (err_ster),
+        .err_fmer           (err_fmer),
+        .err_crcer          (err_crcer)
     );
 
 endmodule

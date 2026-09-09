@@ -30,7 +30,11 @@ module apb_interface #(
     output  reg [DATA_WIDTH-1:0]  reg_wdata,
     output  reg [STRB_WIDTH-1:0]  reg_wstrb,
     input   wire [DATA_WIDTH-1:0] reg_rdata,
-    input   wire                  reg_err
+    input   wire                  reg_err,
+    input   wire [31:0]           rx_idr,
+    input   wire [31:0]           rx_dlcr,
+    input   wire [31:0]           rx_dw1r,
+    input   wire [31:0]           rx_dw2r
 );
 
     // The register bank is on this clock, so every valid APB access completes
@@ -39,17 +43,26 @@ module apb_interface #(
         pready    = 1'b0;
         pslverr   = 1'b0;
         prdata    = {DATA_WIDTH{1'b0}};
-        reg_addr  = paddr;
+        reg_addr  = (psel && penable) ? paddr : {ADDR_WIDTH{1'b0}};
         reg_wr_en = 1'b0;
         reg_rd_en = 1'b0;
         reg_wdata = pwdata;
         reg_wstrb = pstrb;
 
-        if (presetn && psel && penable) begin
+        if (psel && penable) begin
             pready = 1'b1;
             pslverr = reg_err;
             if (pwrite)
                 reg_wr_en = 1'b1;
+            else if (paddr == 12'h050) begin
+                prdata = rx_idr;
+            end else if (paddr == 12'h054) begin
+                prdata = rx_dlcr;
+            end else if (paddr == 12'h058) begin
+                prdata = {rx_dw1r[7:0], rx_dw1r[15:8], rx_dw1r[23:16], rx_dw1r[31:24]};
+            end else if (paddr == 12'h05C) begin
+                prdata = {rx_dw2r[7:0], rx_dw2r[15:8], rx_dw2r[23:16], rx_dw2r[31:24]};
+            end
             else begin
                 reg_rd_en = 1'b1;
                 prdata = reg_rdata;

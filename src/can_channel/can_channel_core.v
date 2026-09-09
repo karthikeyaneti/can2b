@@ -20,6 +20,10 @@ module can_channel_core #(
     input  wire [3:0]  reg_wstrb,
     output wire [31:0] reg_rdata,
     output wire        reg_err,
+    output wire [31:0] rx_idr_apb,
+    output wire [31:0] rx_dlcr_apb,
+    output wire [31:0] rx_dw1r_apb,
+    output wire [31:0] rx_dw2r_apb,
 
     // CAN Engine Clock
     input  wire        can_clk,
@@ -37,16 +41,27 @@ module can_channel_core #(
     //  Synchronized CAN-Domain Reset
     // =========================================================================
     wire can_clk_rst_n;
+    wire srst;
     reset_synchronizer can_reset_sync (
         .clk        (can_clk),
         .rst_n_async(can_rst_n),
         .rst_n_sync (can_clk_rst_n)
     );
 
+    wire srst_can;
+    wire can_engine_rst_n = can_clk_rst_n && !srst_can;
+    pulse_synchronizer srst_sync (
+        .src_clk  (pclk),
+        .src_rst_n(presetn),
+        .src_pulse(srst),
+        .dst_clk  (can_clk),
+        .dst_rst_n(can_clk_rst_n),
+        .dst_pulse(srst_can)
+    );
+
     // =========================================================================
     //  Register File Outputs
     // =========================================================================
-    wire        srst;
     wire        cen;
     wire        lback;
     wire        sleep_mode;
@@ -111,6 +126,12 @@ module can_channel_core #(
     wire        bsp_err_fmer;
     wire        bsp_err_crcer;
 
+    wire [7:0]  eml_tec;
+    wire [7:0]  eml_rec;
+    wire [1:0]  eml_estat;
+    wire        eml_errwrn;
+    wire        eml_bus_off;
+
     // TX FIFO status
     wire        tx_fifo_full;
     wire        tx_fifo_empty;
@@ -120,6 +141,10 @@ module can_channel_core #(
     wire        rx_not_empty;
     wire        rx_underflow;
     wire        rx_overflow;
+    wire        rx_fifo_full;
+
+    localparam TX_FIFO_ADDR_WIDTH = $clog2(TX_FIFO_DEPTH);
+    localparam RX_FIFO_ADDR_WIDTH = $clog2(RX_FIFO_DEPTH);
 
     // BTL outputs
     wire        sample_point;
@@ -166,22 +191,22 @@ module can_channel_core #(
     wire sync_tx_ok, sync_tx_err, sync_arblst, sync_rx_ok;
 
     pulse_synchronizer tx_ok_sync (
-        .src_clk(can_clk), .src_rst_n(can_clk_rst_n), .src_pulse(bsp_tx_success),
+        .src_clk(can_clk), .src_rst_n(can_engine_rst_n), .src_pulse(bsp_tx_success),
         .dst_clk(pclk),    .dst_rst_n(presetn),        .dst_pulse(sync_tx_ok)
     );
 
     pulse_synchronizer tx_err_sync (
-        .src_clk(can_clk), .src_rst_n(can_clk_rst_n), .src_pulse(bsp_tx_error),
+        .src_clk(can_clk), .src_rst_n(can_engine_rst_n), .src_pulse(bsp_tx_error),
         .dst_clk(pclk),    .dst_rst_n(presetn),        .dst_pulse(sync_tx_err)
     );
 
     pulse_synchronizer arblst_sync (
-        .src_clk(can_clk), .src_rst_n(can_clk_rst_n), .src_pulse(bsp_tx_arblst),
+        .src_clk(can_clk), .src_rst_n(can_engine_rst_n), .src_pulse(bsp_tx_arblst),
         .dst_clk(pclk),    .dst_rst_n(presetn),        .dst_pulse(sync_arblst)
     );
 
     pulse_synchronizer rx_ok_sync (
-        .src_clk(can_clk), .src_rst_n(can_clk_rst_n), .src_pulse(bsp_rx_ok),
+        .src_clk(can_clk), .src_rst_n(can_engine_rst_n), .src_pulse(bsp_rx_ok),
         .dst_clk(pclk),    .dst_rst_n(presetn),        .dst_pulse(sync_rx_ok)
     );
 
@@ -198,19 +223,19 @@ module can_channel_core #(
         .clk(pclk), .rst_n_sync(presetn), .async_in(bsp_bus_idle), .sync_out(sync_bus_idle)
     );
     two_ff_synchronizer #(.WIDTH(1), .INIT_VALUE(1'b0)) bus_off_sync_inst (
-        .clk(pclk), .rst_n_sync(presetn), .async_in(bsp_bus_off), .sync_out(sync_bus_off)
+        .clk(pclk), .rst_n_sync(presetn), .async_in(eml_bus_off), .sync_out(sync_bus_off)
     );
     two_ff_synchronizer #(.WIDTH(1), .INIT_VALUE(1'b0)) errwrn_sync (
-        .clk(pclk), .rst_n_sync(presetn), .async_in(bsp_errwrn), .sync_out(sync_errwrn)
+        .clk(pclk), .rst_n_sync(presetn), .async_in(eml_errwrn), .sync_out(sync_errwrn)
     );
     two_ff_synchronizer #(.WIDTH(2), .INIT_VALUE(2'b00)) estat_sync (
-        .clk(pclk), .rst_n_sync(presetn), .async_in(bsp_estat), .sync_out(sync_estat)
+        .clk(pclk), .rst_n_sync(presetn), .async_in(eml_estat), .sync_out(sync_estat)
     );
     two_ff_synchronizer #(.WIDTH(8), .INIT_VALUE(8'd0)) tec_sync (
-        .clk(pclk), .rst_n_sync(presetn), .async_in(bsp_tec), .sync_out(sync_tec)
+        .clk(pclk), .rst_n_sync(presetn), .async_in(eml_tec), .sync_out(sync_tec)
     );
     two_ff_synchronizer #(.WIDTH(8), .INIT_VALUE(8'd0)) rec_sync (
-        .clk(pclk), .rst_n_sync(presetn), .async_in(bsp_rec), .sync_out(sync_rec)
+        .clk(pclk), .rst_n_sync(presetn), .async_in(eml_rec), .sync_out(sync_rec)
     );
     two_ff_synchronizer #(.WIDTH(1), .INIT_VALUE(1'b0)) acker_sync (
         .clk(pclk), .rst_n_sync(presetn), .async_in(bsp_err_acker), .sync_out(sync_err_acker)
@@ -285,7 +310,7 @@ module can_channel_core #(
         .tx_fifo_full    (tx_fifo_full),
         .tx_hpb_full     (1'b0),
         .rx_not_empty    (rx_not_empty),
-        .rx_fifo_full    (1'b0),
+        .rx_fifo_full    (rx_fifo_full),
         .rx_underflow    (rx_underflow),
         .rx_ok           (sync_rx_ok),
         .tx_ok           (sync_tx_ok),
@@ -314,50 +339,7 @@ module can_channel_core #(
     wire [28:0] tx_wr_id_packed = tx_ide ? {tx_id, tx_ext_id} : {18'd0, tx_id};
     wire [63:0] tx_wr_data_packed = {tx_data0, tx_data1};
 
-    // =========================================================================
-    //  TX FIFO (pclk write -> can_clk read)
-    // =========================================================================
-    tx_fifo #(
-        .ADDR_WIDTH(TX_FIFO_DEPTH)
-    ) u_tx_fifo (
-        .wr_clk        (pclk),
-        .wr_rst_n_sync (presetn),
-        .tx_wr_en      (tx_wr_en),
-        .tx_wr_id      (tx_wr_id_packed),
-        .tx_wr_ide     (tx_ide),
-        .tx_wr_rtr     (tx_rtr),
-        .tx_wr_dlc     (tx_dlc),
-        .tx_wr_data    (tx_wr_data_packed),
-        .tx_fifo_full  (tx_fifo_full),
-        .rd_clk        (can_clk),
-        .rd_rst_n_sync (can_clk_rst_n),
-        .tx_rd_en      (tx_rd_en),
-        .tx_rd_id      (tx_rd_id),
-        .tx_rd_ide     (tx_rd_ide),
-        .tx_rd_rtr     (tx_rd_rtr),
-        .tx_rd_dlc     (tx_rd_dlc),
-        .tx_rd_data    (tx_rd_data),
-        .tx_frame_avail(tx_frame_avail),
-        .tx_fifo_empty (tx_fifo_empty)
-    );
-
-    // =========================================================================
-    //  CRC Generator (can_clk domain, driven by BSP)
-    // =========================================================================
-    crc_gen u_crc_gen (
-        .can_clk        (can_clk),
-        .can_rst_n_sync (can_clk_rst_n),
-        .bit_in         (crc_bit_in),
-        .bit_in_valid   (crc_update_en),
-        .bit_in_ready   (),
-        .crc_clear      (crc_clear),
-        .crc_update_en  (crc_update_en),
-        .crc_emit_en    (1'b0),
-        .bit_out        (),
-        .bit_out_valid  (),
-        .crc_emit_done  (),
-        .crc_value      (crc_value)
-    );
+    // TX path owns the TX FIFO, CRC generator, and protocol BSP.
 
     // =========================================================================
     //  Loopback Mux: In loopback mode, TX bit feeds back to RX input
@@ -374,7 +356,7 @@ module can_channel_core #(
     // =========================================================================
     can_btl_top u_btl (
         .can_clk        (can_clk),
-        .can_rst_n      (can_rst_n),
+        .can_rst_n      (can_engine_rst_n),
         .config_mode    (config_mode),
         .brp            (brp),
         .tseg1          (tseg1),
@@ -391,65 +373,52 @@ module can_channel_core #(
         .bit_tick       (bit_tick)
     );
 
-    // =========================================================================
-    //  Bit Stream Processor (BSP) - Protocol Engine
-    // =========================================================================
-    can_bsp u_bsp (
-        .can_clk            (can_clk),
-        .can_rst_n_sync     (can_clk_rst_n),
-        .sample_point       (sample_point),
-        .sampled_bit        (sampled_bit_effective),
-        .bit_tick           (bit_tick),
-        .tx_active          (bsp_tx_active),
-        .bus_idle           (bsp_bus_idle),
-        .can_tx_bit         (can_tx_bit),
-        .cen                (cen),
-        .lback_mode         (lback),
-        .sleep_mode         (sleep_mode),
-        .tx_frame_avail     (tx_frame_avail),
-        .tx_rd_id           (tx_rd_id),
-        .tx_rd_ide          (tx_rd_ide),
-        .tx_rd_rtr          (tx_rd_rtr),
-        .tx_rd_dlc          (tx_rd_dlc),
-        .tx_rd_data         (tx_rd_data),
-        .tx_rd_en           (tx_rd_en),
-        .crc_clear          (crc_clear),
-        .crc_update_en      (crc_update_en),
-        .crc_bit_in         (crc_bit_in),
-        .crc_value          (crc_value),
-        .destuffed_bit_out  (destuffed_bit_out),
-        .destuffed_bit_valid(destuffed_bit_valid),
-        .stuff_bit_dropped  (stuff_bit_dropped),
-        .stuff_error        (stuff_error),
-        .destuff_en         (destuff_en),
-        .destuff_reset      (destuff_reset),
-        .rx_frame_valid     (rx_frame_valid),
-        .rx_frame_idr       (rx_frame_idr),
-        .rx_frame_dlcr      (rx_frame_dlcr),
-        .rx_frame_dw1r      (rx_frame_dw1r),
-        .rx_frame_dw2r      (rx_frame_dw2r),
-        .tx_success_pulse   (bsp_tx_success),
-        .tx_error_pulse     (bsp_tx_error),
-        .tx_arblst_pulse    (bsp_tx_arblst),
-        .rx_ok_pulse        (bsp_rx_ok),
-        .tx_busy            (bsp_tx_busy),
-        .tec                (bsp_tec),
-        .rec                (bsp_rec),
-        .estat              (bsp_estat),
-        .errwrn             (bsp_errwrn),
-        .bus_off            (bsp_bus_off),
-        .err_acker          (bsp_err_acker),
-        .err_berr           (bsp_err_berr),
-        .err_ster           (bsp_err_ster),
-        .err_fmer           (bsp_err_fmer),
-        .err_crcer          (bsp_err_crcer)
+    can_tx_path_core #(.FIFO_ADDR_WIDTH(TX_FIFO_ADDR_WIDTH)) u_tx_path_core (
+        .pclk(pclk), .presetn(presetn), .tx_wr_en(tx_wr_en),
+        .tx_wr_id(tx_wr_id_packed), .tx_wr_ide(tx_ide), .tx_wr_rtr(tx_rtr),
+        .tx_wr_dlc(tx_dlc), .tx_wr_data(tx_wr_data_packed),
+        .tx_fifo_full(tx_fifo_full), .tx_fifo_empty(tx_fifo_empty),
+        .can_clk(can_clk), .can_rst_n_sync(can_engine_rst_n), .cen(cen),
+        .lback_mode(lback), .sleep_mode(sleep_mode), .sample_point(sample_point),
+        .sampled_bit(sampled_bit_effective), .bit_tick(bit_tick),
+        .tx_active(bsp_tx_active), .bus_idle(bsp_bus_idle), .can_tx_bit(can_tx_bit),
+        .destuff_en(destuff_en), .destuff_reset(destuff_reset),
+        .destuffed_bit_out(destuffed_bit_out), .destuffed_bit_valid(destuffed_bit_valid),
+        .stuff_bit_dropped(stuff_bit_dropped), .stuff_error(stuff_error),
+        .rx_frame_valid(rx_frame_valid), .rx_frame_idr(rx_frame_idr),
+        .rx_frame_dlcr(rx_frame_dlcr), .rx_frame_dw1r(rx_frame_dw1r),
+        .rx_frame_dw2r(rx_frame_dw2r), .tx_success_pulse(bsp_tx_success),
+        .tx_error_pulse(bsp_tx_error), .tx_arblst_pulse(bsp_tx_arblst),
+        .rx_ok_pulse(bsp_rx_ok), .tx_busy(bsp_tx_busy), .tec(bsp_tec),
+        .rec(bsp_rec), .estat(bsp_estat), .errwrn(bsp_errwrn),
+        .bus_off(bsp_bus_off), .err_acker(bsp_err_acker), .err_berr(bsp_err_berr),
+        .err_ster(bsp_err_ster), .err_fmer(bsp_err_fmer), .err_crcer(bsp_err_crcer)
+    );
+
+    error_management_logic u_eml (
+        .can_clk         (can_clk),
+        .can_rst_n_sync  (can_engine_rst_n),
+        .tx_success      (bsp_tx_success),
+        .tx_error        (bsp_tx_error),
+        .arbitration_lost(bsp_tx_arblst),
+        .rx_success      (bsp_rx_ok),
+        .err_acker       (bsp_err_acker),
+        .err_berr        (bsp_err_berr),
+        .err_ster        (bsp_err_ster),
+        .err_fmer        (bsp_err_fmer),
+        .err_crcer       (bsp_err_crcer),
+        .tec             (eml_tec),
+        .rec             (eml_rec),
+        .estat           (eml_estat),
+        .errwrn          (eml_errwrn),
+        .bus_off         (eml_bus_off)
     );
 
     // =========================================================================
     //  RX Path (Bit De-stuffing, Acceptance Filtering, RX FIFO)
     // =========================================================================
     rx_path_top #(
-        .FIFO_ADDR_WIDTH(RX_FIFO_DEPTH)
+        .FIFO_ADDR_WIDTH(RX_FIFO_ADDR_WIDTH)
     ) u_rx_path (
         .pclk               (pclk),
         .presetn            (presetn),
@@ -460,6 +429,7 @@ module can_channel_core #(
         .rx_dw2r            (rx_dw2r_host),
         .rx_empty           (rx_empty),
         .rx_not_empty       (rx_not_empty),
+        .rx_fifo_full       (rx_fifo_full),
         .rx_underflow_pulse (rx_underflow),
         .uaf                (afr_uaf),
         .afmr1              (afmr1),
@@ -471,7 +441,7 @@ module can_channel_core #(
         .afmr4              (afmr4),
         .afir4              (afir4),
         .can_clk            (can_clk),
-        .can_rst_n_sync     (can_clk_rst_n),
+        .can_rst_n_sync     (can_engine_rst_n),
         .sample_point       (sample_point),
         .sampled_bit        (sampled_bit_effective),
         .destuff_en         (destuff_en),
@@ -493,5 +463,10 @@ module can_channel_core #(
     //  Physical CAN TX output
     // =========================================================================
     assign can_tx = lback ? 1'b1 : can_tx_bit; // In loopback, don't drive bus
+
+    assign rx_idr_apb  = rx_idr_host;
+    assign rx_dlcr_apb = rx_dlcr_host;
+    assign rx_dw1r_apb = rx_dw1r_host;
+    assign rx_dw2r_apb = rx_dw2r_host;
 
 endmodule

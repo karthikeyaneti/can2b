@@ -68,7 +68,6 @@ module rx_fifo #(
         end
     end
 
-    // Unpack 16-byte message for host reads
     assign rx_idr       = rd_data[127:96];
     assign rx_dlcr      = rd_data[95:64];
     assign rx_dw1r      = rd_data[63:32];

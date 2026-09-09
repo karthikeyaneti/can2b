@@ -130,12 +130,13 @@ module can_reg_file #(
     reg        cen_reg;
     reg        lback_reg;
     reg        sleep_reg;
+    reg        srst_reg;
     reg [31:0] esr_reg;
     reg [31:0] isr_reg;
     reg [31:0] ier_reg;
 
     assign cen         = cen_reg;
-    assign srst        = 1'b0; // Pulse software reset handled in write logic
+    assign srst        = srst_reg;
     assign lback       = lback_reg;
     assign sleep       = sleep_reg;
     assign config_mode = ~cen_reg;
@@ -184,12 +185,18 @@ module can_reg_file #(
                        (reg_addr == ADDR_RX_DW1) ||
                        (reg_addr == ADDR_RX_DW2);
 
+    wire [31:0] masked_wdata = reg_wdata & {
+        {8{reg_wstrb[3]}}, {8{reg_wstrb[2]}},
+        {8{reg_wstrb[1]}}, {8{reg_wstrb[0]}}
+    };
+
     // --- 1. APB Register Writes ---
     always @(posedge pclk or negedge presetn) begin
         if (!presetn) begin
             cen_reg       <= 1'b0;
             lback_reg     <= 1'b0;
             sleep_reg     <= 1'b0;
+            srst_reg      <= 1'b0;
             brp           <= 8'd0;
             tseg1         <= 4'd5;
             tseg2         <= 3'd2;
@@ -228,6 +235,7 @@ module can_reg_file #(
             tx_wr_en     <= 1'b0;
             tx_hpb_wr_en <= 1'b0;
             rx_pop       <= 1'b0;
+            srst_reg     <= 1'b0;
 
             // HW Event Sets in ISR
             if (arblst)             isr_reg[0]  <= 1'b1; // bit 31 in big-endian = bit 0
@@ -254,8 +262,9 @@ module can_reg_file #(
             if (reg_wr_en && is_valid_addr && !is_readonly) begin
                 case (reg_addr)
                     ADDR_SRR: begin
-                        if (reg_wdata[0]) begin
+                        if (reg_wstrb[0] && reg_wdata[0]) begin
                             // Software Reset (SRR[0])
+                            srst_reg  <= 1'b1;
                             cen_reg   <= 1'b0;
                             lback_reg <= 1'b0;
                             sleep_reg <= 1'b0;
@@ -264,25 +273,26 @@ module can_reg_file #(
                             ier_reg   <= 32'd0;
                         end else begin
                             // CEN bit (SRR[1])
-                            cen_reg <= reg_wdata[1] || reg_wdata[30];
+                            if (reg_wstrb[0])
+                                cen_reg <= reg_wdata[1] || reg_wdata[30];
                         end
                     end
 
                     ADDR_MSR: begin
-                        if (config_mode) begin
+                        if (config_mode && reg_wstrb[0]) begin
                             lback_reg <= reg_wdata[1] || reg_wdata[30];
                             sleep_reg <= reg_wdata[0] || reg_wdata[31];
                         end
                     end
 
                     ADDR_BRPR: begin
-                        if (config_mode) begin
+                        if (config_mode && reg_wstrb[0]) begin
                             brp <= reg_wdata[7:0];
                         end
                     end
 
                     ADDR_BTR: begin
-                        if (config_mode) begin
+                        if (config_mode && reg_wstrb[0]) begin
                             tseg1 <= reg_wdata[3:0];
                             tseg2 <= reg_wdata[6:4] | reg_wdata[7:5];
                             sjw   <= reg_wdata[8:7] | reg_wdata[9:8];
@@ -291,16 +301,16 @@ module can_reg_file #(
 
                     ADDR_ESR: begin
                         // W1C
-                        esr_reg <= esr_reg & ~reg_wdata;
+                        esr_reg <= esr_reg & ~masked_wdata;
                     end
 
                     ADDR_IER: begin
-                        ier_reg <= reg_wdata;
+                        ier_reg <= masked_wdata;
                     end
 
                     ADDR_ICR: begin
                         // W1C for ISR
-                        isr_reg <= isr_reg & ~reg_wdata;
+                        isr_reg <= isr_reg & ~masked_wdata;
                     end
 
                     ADDR_TX_ID: begin
@@ -316,11 +326,11 @@ module can_reg_file #(
 
                     ADDR_TX_DW1: begin
                         // Byte swap for big-endian data words
-                        tx_data0 <= {reg_wdata[7:0], reg_wdata[15:8], reg_wdata[23:16], reg_wdata[31:24]};
+                        tx_data0 <= {masked_wdata[7:0], masked_wdata[15:8], masked_wdata[23:16], masked_wdata[31:24]};
                     end
 
                     ADDR_TX_DW2: begin
-                        tx_data1 <= {reg_wdata[7:0], reg_wdata[15:8], reg_wdata[23:16], reg_wdata[31:24]};
+                        tx_data1 <= {masked_wdata[7:0], masked_wdata[15:8], masked_wdata[23:16], masked_wdata[31:24]};
                         tx_wr_en <= 1'b1; // Writing DW2 triggers FIFO push
                     end
 
@@ -365,6 +375,7 @@ module can_reg_file #(
             if (reg_rd_en && (reg_addr == ADDR_RX_DW2)) begin
                 rx_pop <= 1'b1;
             end
+
         end
     end
 

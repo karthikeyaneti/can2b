@@ -134,6 +134,10 @@ module can_bsp (
     reg check_bit_error;
     reg check_ack;
 
+    wire arbitration_lost_event = sample_point && tx_active && in_arbitration &&
+                                  (can_tx_bit == RECESSIVE) &&
+                                  (sampled_bit == DOMINANT);
+
     // RX Engine Registers
     reg [4:0]  rx_state;
     reg [5:0]  rx_bit_cnt;
@@ -151,6 +155,14 @@ module can_bsp (
 
     wire [3:0] rx_eff_dlc = (rx_dlc_reg > 4'd8) ? 4'd8 : rx_dlc_reg;
     wire [6:0] rx_total_data_bits = {rx_eff_dlc, 3'b000};
+
+    wire rx_crc_error;
+    crc_check u_crc_check (
+        .check_en       (sample_point && (rx_state == RX_CRC_DELIM)),
+        .calculated_crc (rx_crc_calc),
+        .received_crc   (rx_crc_received),
+        .crc_error      (rx_crc_error)
+    );
 
     // Calculate next RX CRC incrementally
     function [14:0] next_crc15(input b, input [14:0] current_crc);
@@ -176,7 +188,7 @@ module can_bsp (
     endfunction
 
     // Error status definitions (ISO 11898-1)
-    assign bus_off = (tec >= 8'd256); // or 8'hFF in 8-bit clamp
+    assign bus_off = (tec >= 8'd255); // or 8'hFF in 8-bit clamp
     assign estat   = (tec >= 8'd255) ? 2'b10 : // Bus-Off
                      (tec >= 8'd128 || rec >= 8'd128) ? 2'b01 : // Error Passive
                      2'b00; // Error Active
@@ -360,6 +372,10 @@ module can_bsp (
                         insert_stuff    <= 1'b0;
                         state           <= ST_IDLE;
                         bus_idle        <= 1'b0;
+                        rx_state        <= RX_IDLE;
+                        rx_has_error    <= 1'b0;
+                        rx_ack_drive    <= 1'b0;
+                        destuff_reset   <= 1'b1;
                     end
                 end else if (check_ack) begin
                     if (sampled_bit == RECESSIVE && !lback_mode) begin
@@ -424,17 +440,11 @@ module can_bsp (
                     if (bit_tick) begin
                         if (insert_stuff) begin
                             insert_stuff <= 1'b0;
-                            if (raw_bit == (~last_stuff_bit)) begin
-                                stuff_count    <= 3'd2;
-                                last_stuff_bit <= raw_bit;
-                            end else begin
-                                stuff_count    <= 3'd1;
-                                last_stuff_bit <= raw_bit;
-                            end
-                        end else if (stuff_en && (stuff_count == 3'd5)) begin
-                            insert_stuff   <= 1'b1;
-                            last_stuff_bit <= raw_bit;
+                            // The stuffed bit is the complement of the last
+                            // transmitted data bit. The next data bit is
+                            // selected by the normal FSM below.
                             stuff_count    <= 3'd1;
+                            last_stuff_bit <= ~last_stuff_bit;
                         end else begin
                             case (state)
                                 ST_SOF: begin
@@ -654,6 +664,12 @@ module can_bsp (
                                 end
                                 default: ;
                             endcase
+
+                            // The current data bit has been consumed by the
+                            // normal FSM. Insert the stuff bit before the
+                            // next data bit when this bit completed a run.
+                            if (stuff_en && (stuff_count == 3'd5))
+                                insert_stuff <= 1'b1;
                         end
                     end
                 end
@@ -765,7 +781,7 @@ module can_bsp (
                     rx_has_error <= 1'b0;
 
                     // Detect SOF from bus (dominant 0)
-                    if (sample_point && sampled_bit == DOMINANT && !tx_active) begin
+                    if (sample_point && sampled_bit == DOMINANT) begin
                         rx_state      <= RX_BASE_ID;
                         rx_bit_cnt    <= 6'd10;
                         destuff_en    <= 1'b1;
@@ -783,7 +799,7 @@ module can_bsp (
 
                 RX_BASE_ID: begin
                     destuff_en <= 1'b1;
-                    if (destuffed_bit_valid) begin
+                    if (destuffed_bit_valid && !destuff_reset) begin
                         rx_base_id[rx_bit_cnt] <= destuffed_bit_out;
                         rx_crc_calc            <= next_crc15(destuffed_bit_out, rx_crc_calc);
 
@@ -798,7 +814,7 @@ module can_bsp (
 
                 RX_RTR_SRR: begin
                     destuff_en <= 1'b1;
-                    if (destuffed_bit_valid) begin
+                    if (destuffed_bit_valid && !destuff_reset) begin
                         rx_srr_rtr  <= destuffed_bit_out;
                         rx_crc_calc <= next_crc15(destuffed_bit_out, rx_crc_calc);
                         rx_state    <= RX_IDE;
@@ -808,7 +824,7 @@ module can_bsp (
 
                 RX_IDE: begin
                     destuff_en <= 1'b1;
-                    if (destuffed_bit_valid) begin
+                    if (destuffed_bit_valid && !destuff_reset) begin
                         rx_ide_bit  <= destuffed_bit_out;
                         rx_crc_calc <= next_crc15(destuffed_bit_out, rx_crc_calc);
 
@@ -826,7 +842,7 @@ module can_bsp (
 
                 RX_EXT_ID: begin
                     destuff_en <= 1'b1;
-                    if (destuffed_bit_valid) begin
+                    if (destuffed_bit_valid && !destuff_reset) begin
                         rx_ext_id[rx_bit_cnt] <= destuffed_bit_out;
                         rx_crc_calc           <= next_crc15(destuffed_bit_out, rx_crc_calc);
 
@@ -841,7 +857,7 @@ module can_bsp (
 
                 RX_EXT_RTR: begin
                     destuff_en <= 1'b1;
-                    if (destuffed_bit_valid) begin
+                    if (destuffed_bit_valid && !destuff_reset) begin
                         rx_ext_rtr  <= destuffed_bit_out;
                         rx_crc_calc <= next_crc15(destuffed_bit_out, rx_crc_calc);
                         rx_state    <= RX_RESERVED;
@@ -851,7 +867,7 @@ module can_bsp (
 
                 RX_RESERVED: begin
                     destuff_en <= 1'b1;
-                    if (destuffed_bit_valid) begin
+                    if (destuffed_bit_valid && !destuff_reset) begin
                         rx_crc_calc <= next_crc15(destuffed_bit_out, rx_crc_calc);
                         if (rx_bit_cnt == 6'd0) begin
                             rx_state   <= RX_DLC;
@@ -864,7 +880,7 @@ module can_bsp (
 
                 RX_DLC: begin
                     destuff_en <= 1'b1;
-                    if (destuffed_bit_valid) begin
+                    if (destuffed_bit_valid && !destuff_reset) begin
                         rx_dlc_reg[rx_bit_cnt] <= destuffed_bit_out;
                         rx_crc_calc            <= next_crc15(destuffed_bit_out, rx_crc_calc);
 
@@ -886,7 +902,7 @@ module can_bsp (
 
                 RX_DATA: begin
                     destuff_en <= 1'b1;
-                    if (destuffed_bit_valid) begin
+                    if (destuffed_bit_valid && !destuff_reset) begin
                         rx_data_reg[63 - rx_bit_cnt] <= destuffed_bit_out;
                         rx_crc_calc                  <= next_crc15(destuffed_bit_out, rx_crc_calc);
 
@@ -916,27 +932,22 @@ module can_bsp (
                 RX_CRC_DELIM: begin
                     destuff_en <= 1'b0;
                     if (sample_point) begin
-                        if (sampled_bit != RECESSIVE) begin
-                            err_fmer     <= 1'b1;
-                            rx_has_error <= 1'b1;
-                        end
-                        if (rx_crc_received != rx_crc_calc) begin
+                        if (sampled_bit != RECESSIVE)
+                            err_fmer <= 1'b1;
+                        if (rx_crc_error)
                             err_crcer    <= 1'b1;
-                            rx_has_error <= 1'b1;
-                        end
 
+                        if ((sampled_bit == RECESSIVE) && !rx_crc_error)
+                            rx_ack_drive <= 1'b1;
+                        else
+                            rx_has_error <= 1'b1;
                         rx_state <= RX_ACK_SLOT;
                     end
                 end
 
                 RX_ACK_SLOT: begin
                     destuff_en <= 1'b0;
-                    // If no errors, drive ACK (dominant 0) onto bus
-                    if (!rx_has_error && !tx_active) begin
-                        rx_ack_drive <= 1'b1;
-                    end
-
-                    if (bit_tick) begin
+                    if (sample_point) begin
                         rx_ack_drive <= 1'b0;
                         rx_state     <= RX_ACK_DELIM;
                     end
@@ -950,8 +961,6 @@ module can_bsp (
                             err_fmer     <= 1'b1;
                             rx_has_error <= 1'b1;
                         end
-                    end
-                    if (bit_tick) begin
                         rx_state   <= RX_EOF;
                         rx_bit_cnt <= 6'd6;
                     end
@@ -1001,6 +1010,14 @@ module can_bsp (
                     rx_state <= RX_IDLE;
                 end
             endcase
+
+            // Arbitration loss aborts any receive parse of the competing frame.
+            if (arbitration_lost_event) begin
+                rx_state     <= RX_IDLE;
+                rx_has_error <= 1'b0;
+                rx_ack_drive <= 1'b0;
+                destuff_reset <= 1'b1;
+            end
         end
     end
 

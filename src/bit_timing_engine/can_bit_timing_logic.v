@@ -1,3 +1,5 @@
+`timescale 1ns / 1ps
+
 module can_bit_timing_logic (
     input  wire       can_clk,
     input  wire       can_rst_n_sync,
@@ -86,7 +88,7 @@ module can_bit_timing_logic (
     wire [4:0] late_delta = (late_error > sjw_eff) ? sjw_eff : late_error;
 
     // early edge in TSEG2
-    wire [4:0] early_error = (cur_tseg2 > tq_count) ? (cur_tseg2 - tq_count) : 5'd0;
+    wire [4:0] early_error = (cur_tseg2 > tq_elapsed) ? (cur_tseg2 - tq_elapsed) : 5'd0;
     wire [4:0] early_delta = (early_error > sjw_eff) ? sjw_eff : early_error;
 
     reg [4:0] adjusted_tseg1;
@@ -117,7 +119,9 @@ module can_bit_timing_logic (
         end
     end
 
-    wire hard_sync_trigger = (bus_idle || present_seg == SEG_IDLE) && (dominant_edge || edge_available || (rx_sync == DOMINANT));
+    wire hard_sync_trigger = (bus_idle && dominant_edge) ||
+                             ((present_seg == SEG_IDLE) &&
+                              (dominant_edge || edge_available || (rx_sync == DOMINANT)));
 
     always @(posedge can_clk) begin
         if (!can_rst_n_sync || config_mode) begin
