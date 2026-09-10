@@ -7,11 +7,11 @@ clock -name "dst_clk" -period 10.0 -edge {0.0 5.0} -domain "DESTINATION"
 reset -name "src_rst_n_async" -value 0 -async
 reset -name "dst_rst_n_async" -value 0 -async
 
-reset_synchronizer -name "src_rst_n_sync" \
+reset_synchronizer -name "u_src_reset.S2" \
 				   -clock "src_clk" \
 				   -reset "src_rst_n_async" \
 				   -value 0
-reset_synchronizer -name "dst_rst_n_sync" \
+reset_synchronizer -name "u_dst_reset.S2" \
 				   -clock "dst_clk" \
 				   -reset "dst_rst_n_async" \
 				   -value 0
