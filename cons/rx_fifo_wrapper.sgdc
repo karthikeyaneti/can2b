@@ -1,0 +1,42 @@
+// SpyGlass lint and CDC constraints for rx_fifo_wrapper.
+
+current_design "rx_fifo_wrapper"
+
+// CAN write side at 20 MHz; APB read side at 100 MHz.
+clock -name "wr_clk" -period 50.0 -edge {0.0 25.0} -domain "CAN"
+clock -name "rd_clk" -period 10.0 -edge {0.0 5.0} -domain "APB"
+
+reset -name "wr_rst_n_async" -value 0 -async
+reset -name "rd_rst_n_async" -value 0 -async
+
+reset_synchronizer -name "u_wr_reset.S2" \
+                   -clock "wr_clk" \
+                   -reset "wr_rst_n_async" \
+                   -value 0
+reset_synchronizer -name "u_rd_reset.S2" \
+                   -clock "rd_clk" \
+                   -reset "rd_rst_n_async" \
+                   -value 0
+
+cdc_attribute -name "u_fifo.u_can_fifo.wr_ptr_gray" -gray
+cdc_attribute -name "u_fifo.u_can_fifo.rd_ptr_gray" -gray
+
+fifo -memory "u_fifo.u_can_fifo.fifo_mem" \
+     -wr_data "u_fifo.u_can_fifo.wr_data" \
+     -rd_data "u_fifo.u_can_fifo.rd_data" \
+     -wr_ptr  "u_fifo.u_can_fifo.wr_ptr" \
+     -rd_ptr  "u_fifo.u_can_fifo.rd_ptr"
+
+input  -name "rx_push"     -clock "wr_clk"
+input  -name "rx_push_idr" -clock "wr_clk"
+input  -name "rx_push_dlcr" -clock "wr_clk"
+input  -name "rx_push_dw1r" -clock "wr_clk"
+input  -name "rx_push_dw2r" -clock "wr_clk"
+input  -name "rx_pop"      -clock "rd_clk"
+output -name "rx_idr"      -clock "rd_clk"
+output -name "rx_dlcr"     -clock "rd_clk"
+output -name "rx_dw1r"     -clock "rd_clk"
+output -name "rx_dw2r"     -clock "rd_clk"
+output -name "rx_empty"    -clock "rd_clk"
+output -name "rx_not_empty" -clock "rd_clk"
+output -name "rx_fifo_full" -clock "wr_clk"
