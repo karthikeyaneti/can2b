@@ -6,9 +6,6 @@ clock -name "src_clk" -period 10.0 -edge {0.0 5.0} -domain "SOURCE"
 clock -name "dst_clk" -period 25.0 -edge {0.0 12.5} -domain "DESTINATION"
 reset -name "rst_n_async" -value 0 -async
 
-qualifier -from_clk "src_clk" -to_clk "dst_clk" \
-          -dest_reg "u_sync.S1" "u_sync.S2"
-
 input  -name "src_clk"      -clock "src_clk"
 input  -name "dst_clk"      -clock "dst_clk"
 input  -name "rst_n_async"  -clock "dst_clk"
