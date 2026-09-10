@@ -5,7 +5,8 @@ module two_ff_synchronizer_wrapper #(
 ) (
     input  wire                 src_clk,
     input  wire                 dst_clk,
-    input  wire                 rst_n_async,
+    input  wire                 src_rst_n_async,
+    input  wire                 dst_rst_n_async,
     input  wire [WIDTH-1:0]     src_data,
     output wire [WIDTH-1:0]     sync_data
 );
@@ -16,13 +17,13 @@ module two_ff_synchronizer_wrapper #(
 
     reset_synchronizer u_src_reset (
         .clk        (src_clk),
-        .rst_n_async(rst_n_async),
+        .rst_n_async(src_rst_n_async),
         .rst_n_sync (src_rst_n_sync)
     );
 
     reset_synchronizer u_dst_reset (
         .clk        (dst_clk),
-        .rst_n_async(rst_n_async),
+        .rst_n_async(dst_rst_n_async),
         .rst_n_sync (dst_rst_n_sync)
     );
 

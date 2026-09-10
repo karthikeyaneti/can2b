@@ -4,15 +4,16 @@ current_design "two_ff_synchronizer_wrapper"
 
 clock -name "src_clk" -period 25.0 -edge {0.0 12.5} -domain "SOURCE"
 clock -name "dst_clk" -period 10.0 -edge {0.0 5.0} -domain "DESTINATION"
-reset -name "rst_n_async" -value 0 -async
+reset -name "src_rst_n_async" -value 0 -async
+reset -name "dst_rst_n_async" -value 0 -async
 
 reset_synchronizer -name "src_rst_n_sync" \
 				   -clock "src_clk" \
-				   -reset "rst_n_async" \
+				   -reset "src_rst_n_async" \
 				   -value 0
 reset_synchronizer -name "dst_rst_n_sync" \
 				   -clock "dst_clk" \
-				   -reset "rst_n_async" \
+				   -reset "dst_rst_n_async" \
 				   -value 0
 
 input  -name "src_data"    -clock "src_clk"
