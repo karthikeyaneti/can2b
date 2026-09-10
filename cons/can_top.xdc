@@ -1,71 +1,124 @@
-# Vivado constraints for the packaged can_top IP.
-#
-# Apply this file at the block-design/top-level project. The block design
-# should provide the 100 MHz APB clock and the Clocking Wizard should provide
-# can_clk. Do not create a second clock on either net if Vivado already has a
-# clock propagated from the PS or Clocking Wizard.
+## can_top.xdc  -  Vivado Timing Constraints for the packaged can_top IP
+##
+## Supported Boards:
+##   - Real Digital Blackboard (Zynq-7007S, xc7z007sclg225)
+##   - PYNQ-Z2              (Zynq-7020, xc7z020clg400)
+##
+## Topology in Block Design (BD):
+##   PS FCLK0 (100 MHz) -> AXI-to-APB bridge -> can_top.s_apb_pclk
+##   PS FCLK0            -> Clocking Wizard   -> can_top.can_clk  (configurable)
+##
+## Because can_clk is a *generated* clock from the Clocking Wizard IP whose
+## XDC already defines it, this file must NOT re-create it as a primary clock.
+## Doing so would produce two independent clocks on the same net and cause
+## set_clock_groups -asynchronous to suppress all inter-domain analysis.
+##
+## ============================================================================
+## PART 1 — Input port false paths
+## ============================================================================
 
-# Block-design clock relationship
-#
-# The reported clock names are generated at the BD/top level, not at the
-# can_top IP boundary. clk_fpga_0 is the 100 MHz source feeding the Clocking
-# Wizard. Define it as a primary clock only when the BD does not already have
-# a clock constraint for it. The Clocking Wizard IP XDC should define
-# clk_out1_can_bd_clk_wiz_0_0 as a generated clock from this source.
-set fpga_clock_source [get_ports -quiet clk_fpga_0]
-if {![llength $fpga_clock_source]} {
-    set fpga_clock_source [get_pins -quiet -hier -regexp {.*\/(FCLK_CLK0|clk_fpga_0)$}]
-}
-if {[llength $fpga_clock_source] &&
-    [llength [get_clocks -quiet clk_fpga_0]] == 0} {
-    create_clock -name clk_fpga_0 -period 10.000 \
-        -waveform {0.000 5.000} $fpga_clock_source
-}
-
-# Do not create primary clocks on s_apb_pclk or can_clk here. In the BD they
-# are internal clock nets, and can_clk must remain a generated clock from the
-# Clocking Wizard rather than becoming a new unrelated primary clock.
-
-# The CAN RX pin is an asynchronous physical input. This constraint prevents
-# a nonexistent external launch clock from producing misleading input timing
-# violations. The RTL should still synchronize this signal before using it in
-# clocked CAN logic; this constraint is not a metastability fix.
+## can_rx is an asynchronous physical signal driven by the CAN bus transceiver.
+## It enters the design through a two_ff_synchronizer inside can_btl_top, so
+## there is no valid external launch clock.  A false path prevents misleading
+## input-delay violations; the synchronizer itself ensures metastability safety.
 if {[llength [get_ports -quiet can_rx]]} {
     set_false_path -from [get_ports can_rx]
 }
 
-# Mark all two-flop synchronizer stages in this IP. ASYNC_REG is also present
-# in the RTL, but setting it here covers packaged/netlist flows.
-set can_sync_cells [get_cells -quiet -hier -regexp {.*u_can_ch0/.*/(S1|S2|S1_reg|S2_reg|dst_sync1|dst_sync2|dst_sync1_reg|dst_sync2_reg)$}]
+## ============================================================================
+## PART 2 — ASYNC_REG attributes on all synchronizer flip-flop chains
+## ============================================================================
+## ASYNC_REG instructs Vivado to:
+##   (a) prevent re-timing / logic re-ordering across the two-flop boundary
+##   (b) place the two flops in the same clock region slice
+##
+## The RTL already has (* ASYNC_REG = "TRUE" *) attributes, but specifying
+## them here ensures coverage for out-of-context (OOC) synthesis flows that
+## may strip RTL attributes.
+
+set can_sync_cells [get_cells -quiet -hier -regexp \
+    {.*(S1_reg|S2_reg|dst_sync1_reg|dst_sync2_reg)$}]
 if {[llength $can_sync_cells]} {
     set_property ASYNC_REG TRUE $can_sync_cells
 }
 
-# Do not time the asynchronous source into the first destination flop. The
-# second flop remains timed, so the synchronizer still has a real MTBF window.
-set level_sync_first_pins [get_pins -quiet -hier -regexp {.*u_can_ch0/.*/(S1|S1_reg)/D$}]
-if {[llength $level_sync_first_pins]} {
-    set_false_path -to $level_sync_first_pins
-}
-set pulse_sync_first_pins [get_pins -quiet -hier -regexp {.*u_can_ch0/(tx_ok_sync|tx_err_sync|arblst_sync|rx_ok_sync)/(dst_sync1|dst_sync1_reg)/D$}]
-if {[llength $pulse_sync_first_pins]} {
-    set_false_path -to $pulse_sync_first_pins
-}
-
-# The FIFO Gray-pointer synchronizers are instantiated below TX/RX FIFO
-# wrappers. Their first stages are CDC endpoints and must not be timed from
-# the opposite clock domain.
-set fifo_sync_first_pins [get_pins -quiet -hier -regexp {.*(wr_ptr_sync|rd_ptr_sync)/(S1|S1_reg)/D$}]
-if {[llength $fifo_sync_first_pins]} {
-    set_false_path -to $fifo_sync_first_pins
+## ============================================================================
+## PART 3 — False paths to the first stage of every CDC synchronizer
+## ============================================================================
+## The first destination flop (S1 / dst_sync1) in every synchronizer sees
+## metastable data from the opposite clock domain.  Vivado must not time this
+## path as a regular register-to-register timing arc.
+##
+## Level synchronizers (two_ff_synchronizer): first stage is S1_reg
+## ─────────────────────────────────────────────────────────────────
+set level_sync_d_pins [get_pins -quiet -hier -regexp \
+    {.*two_ff_synchronizer.*/S1_reg/D$}]
+if {[llength $level_sync_d_pins]} {
+    set_false_path -to $level_sync_d_pins
 }
 
-# Fail loudly in the implementation log when this XDC was attached at the
-# wrong hierarchy or a naming change made the CDC selectors empty.
-if {[llength [get_pins -quiet -hier -regexp {.*(wr_ptr_sync|rd_ptr_sync)/(S1|S1_reg)/D$}]] == 0} {
-    puts "WARNING: can_top.xdc matched no FIFO Gray-pointer synchronizer pins"
+## Reset synchronizers (reset_synchronizer): first stage is S1_reg
+## ────────────────────────────────────────────────────────────────
+set reset_sync_d_pins [get_pins -quiet -hier -regexp \
+    {.*reset_synchronizer.*/S1_reg/D$}]
+if {[llength $reset_sync_d_pins]} {
+    set_false_path -to $reset_sync_d_pins
 }
 
-# Keep the generated clock relationship intact. Do not use
-# set_clock_groups -asynchronous between can_apb_clk and can_engine_clk when
-# can_clk is generated by the 100 MHz Clocking Wizard input.
+## Pulse synchronizers (pulse_synchronizer): first stage is dst_sync1_reg
+## The toggle flip-flop (src_toggle_reg) is the source; dst_sync1 is the first
+## destination flop.
+## ────────────────────────────────────────────────────────────────
+set pulse_sync_d_pins [get_pins -quiet -hier -regexp \
+    {.*pulse_synchronizer.*/dst_sync1_reg/D$}]
+if {[llength $pulse_sync_d_pins]} {
+    set_false_path -to $pulse_sync_d_pins
+}
+
+## ============================================================================
+## PART 4 — FIFO Gray-pointer synchronizer false paths
+## ============================================================================
+## Gray-coded read and write pointers cross clock domains through
+## two_ff_synchronizer instances (wr_ptr_sync and rd_ptr_sync) inside can_fifo.
+## Only one bit changes per cycle, so metastability never propagates.
+## The path to the first capture flop must not be timed.
+
+set fifo_gray_d_pins [get_pins -quiet -hier -regexp \
+    {.*(wr_ptr_sync|rd_ptr_sync).*/S1_reg/D$}]
+if {[llength $fifo_gray_d_pins]} {
+    set_false_path -to $fifo_gray_d_pins
+}
+
+## Diagnostic: warn loudly when the selector matched nothing (e.g. hierarchy
+## changed after a rename), so the engineer knows to update this XDC.
+if {[llength [get_pins -quiet -hier -regexp \
+        {.*(wr_ptr_sync|rd_ptr_sync).*/S1_reg/D$}]] == 0} {
+    puts "WARNING: can_top.xdc — FIFO Gray-pointer synchronizer pins not found.\
+ Update the regexp if FIFO hierarchy changed."
+}
+
+## ============================================================================
+## PART 5 — Quasi-static configuration registers
+## ============================================================================
+## brp, tseg1, tseg2, sjw, cen_reg, lback_reg, sleep_reg are written only
+## in config_mode (CAN disabled).  When the CAN engine is enabled the registers
+## are stable; Vivado may treat these paths as false.
+
+set cfg_reg_q_pins [get_pins -quiet -hier -regexp \
+    {.*u_reg_file/(brp|tseg1|tseg2|sjw|cen_reg|lback_reg|sleep_reg)_reg.*/Q$}]
+if {[llength $cfg_reg_q_pins]} {
+    set_false_path -from $cfg_reg_q_pins
+}
+
+## ============================================================================
+## PART 6 — Notes on clock creation (DO NOT add create_clock here)
+## ============================================================================
+## When this file is attached to a block-design (BD) project:
+##   - s_apb_pclk is an internal net driven by the PS or AXI-to-APB bridge.
+##     Vivado propagates its clock constraint from the PS7/BUFG automatically.
+##   - can_clk is an output of the Clocking Wizard IP whose generated-clock
+##     constraint lives in the Clocking Wizard XDC stub.
+##
+## Adding create_clock for either net here would create a duplicate or
+## conflicting primary clock and break the Clocking Wizard timing model.
+## DO NOT add create_clock or create_generated_clock here.

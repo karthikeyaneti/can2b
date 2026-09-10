@@ -210,8 +210,15 @@ module can_channel_core #(
         .dst_clk(pclk),    .dst_rst_n(presetn),        .dst_pulse(sync_rx_ok)
     );
 
+    wire sync_rx_oflw;
+    pulse_synchronizer rx_oflw_sync (
+        .src_clk(can_clk), .src_rst_n(can_engine_rst_n), .src_pulse(rx_overflow),
+        .dst_clk(pclk),    .dst_rst_n(presetn),        .dst_pulse(sync_rx_oflw)
+    );
+
     // CDC: Level synchronizers for CAN->pclk status signals
     wire sync_tx_busy, sync_bus_idle, sync_bus_off, sync_errwrn;
+    wire sync_rx_fifo_full;
     wire [1:0] sync_estat;
     wire [7:0] sync_tec, sync_rec;
     wire sync_err_acker, sync_err_berr, sync_err_ster, sync_err_fmer, sync_err_crcer;
@@ -228,6 +235,9 @@ module can_channel_core #(
     two_ff_synchronizer #(.WIDTH(1), .INIT_VALUE(1'b0)) errwrn_sync (
         .clk(pclk), .rst_n_sync(presetn), .async_in(eml_errwrn), .sync_out(sync_errwrn)
     );
+    two_ff_synchronizer #(.WIDTH(1), .INIT_VALUE(1'b0)) rx_fifo_full_sync (
+        .clk(pclk), .rst_n_sync(presetn), .async_in(rx_fifo_full), .sync_out(sync_rx_fifo_full)
+    );
     two_ff_synchronizer #(.WIDTH(2), .INIT_VALUE(2'b00)) estat_sync (
         .clk(pclk), .rst_n_sync(presetn), .async_in(eml_estat), .sync_out(sync_estat)
     );
@@ -237,20 +247,27 @@ module can_channel_core #(
     two_ff_synchronizer #(.WIDTH(8), .INIT_VALUE(8'd0)) rec_sync (
         .clk(pclk), .rst_n_sync(presetn), .async_in(eml_rec), .sync_out(sync_rec)
     );
-    two_ff_synchronizer #(.WIDTH(1), .INIT_VALUE(1'b0)) acker_sync (
-        .clk(pclk), .rst_n_sync(presetn), .async_in(bsp_err_acker), .sync_out(sync_err_acker)
+    // Error event signals are one-cycle pulses from can_bsp; use pulse_synchronizer
+    // for proper CDC from CAN clock domain to APB clock domain.
+    pulse_synchronizer acker_sync (
+        .src_clk(can_clk), .src_rst_n(can_engine_rst_n), .src_pulse(bsp_err_acker),
+        .dst_clk(pclk),    .dst_rst_n(presetn),           .dst_pulse(sync_err_acker)
     );
-    two_ff_synchronizer #(.WIDTH(1), .INIT_VALUE(1'b0)) berr_sync (
-        .clk(pclk), .rst_n_sync(presetn), .async_in(bsp_err_berr), .sync_out(sync_err_berr)
+    pulse_synchronizer berr_sync (
+        .src_clk(can_clk), .src_rst_n(can_engine_rst_n), .src_pulse(bsp_err_berr),
+        .dst_clk(pclk),    .dst_rst_n(presetn),           .dst_pulse(sync_err_berr)
     );
-    two_ff_synchronizer #(.WIDTH(1), .INIT_VALUE(1'b0)) ster_sync (
-        .clk(pclk), .rst_n_sync(presetn), .async_in(bsp_err_ster), .sync_out(sync_err_ster)
+    pulse_synchronizer ster_sync (
+        .src_clk(can_clk), .src_rst_n(can_engine_rst_n), .src_pulse(bsp_err_ster),
+        .dst_clk(pclk),    .dst_rst_n(presetn),           .dst_pulse(sync_err_ster)
     );
-    two_ff_synchronizer #(.WIDTH(1), .INIT_VALUE(1'b0)) fmer_sync (
-        .clk(pclk), .rst_n_sync(presetn), .async_in(bsp_err_fmer), .sync_out(sync_err_fmer)
+    pulse_synchronizer fmer_sync (
+        .src_clk(can_clk), .src_rst_n(can_engine_rst_n), .src_pulse(bsp_err_fmer),
+        .dst_clk(pclk),    .dst_rst_n(presetn),           .dst_pulse(sync_err_fmer)
     );
-    two_ff_synchronizer #(.WIDTH(1), .INIT_VALUE(1'b0)) crcer_sync (
-        .clk(pclk), .rst_n_sync(presetn), .async_in(bsp_err_crcer), .sync_out(sync_err_crcer)
+    pulse_synchronizer crcer_sync (
+        .src_clk(can_clk), .src_rst_n(can_engine_rst_n), .src_pulse(bsp_err_crcer),
+        .dst_clk(pclk),    .dst_rst_n(presetn),           .dst_pulse(sync_err_crcer)
     );
 
     // =========================================================================
@@ -310,7 +327,7 @@ module can_channel_core #(
         .tx_fifo_full    (tx_fifo_full),
         .tx_hpb_full     (1'b0),
         .rx_not_empty    (rx_not_empty),
-        .rx_fifo_full    (rx_fifo_full),
+        .rx_fifo_full    (sync_rx_fifo_full),
         .rx_underflow    (rx_underflow),
         .rx_ok           (sync_rx_ok),
         .tx_ok           (sync_tx_ok),

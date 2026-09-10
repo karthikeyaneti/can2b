@@ -237,33 +237,33 @@ module can_reg_file #(
             rx_pop       <= 1'b0;
             srst_reg     <= 1'b0;
 
-            // HW Event Sets in ISR
-            if (arblst)             isr_reg[0]  <= 1'b1; // bit 31 in big-endian = bit 0
-            if (tx_ok)              isr_reg[1]  <= 1'b1; // bit 30
-            if (tx_fifo_full)       isr_reg[2]  <= 1'b1; // bit 29
-            if (tx_hpb_full)        isr_reg[3]  <= 1'b1; // bit 28
-            if (rx_ok)              isr_reg[4]  <= 1'b1; // bit 27
-            if (rx_underflow)       isr_reg[5]  <= 1'b1; // bit 26
-            if (rx_fifo_full)       isr_reg[6]  <= 1'b1; // bit 25 (RXOFLW)
-            if (rx_not_empty)       isr_reg[7]  <= 1'b1; // bit 24 (RXNEMP)
-            if (error_status)       isr_reg[8]  <= 1'b1; // bit 23
-            if (bus_off)            isr_reg[9]  <= 1'b1; // bit 22
-            if (sleep_mode_entered) isr_reg[10] <= 1'b1; // bit 21
-            if (wakeup_event)       isr_reg[11] <= 1'b1; // bit 20
+            // HW Event Sets in ISR (Xilinx DS791 Table 20 MSB format + LSB mirror for compatibility)
+            if (arblst)       begin isr_reg[31] <= 1'b1; isr_reg[0]  <= 1'b1; end // ARBLST
+            if (tx_ok)        begin isr_reg[30] <= 1'b1; isr_reg[1]  <= 1'b1; end // TXOK
+            if (tx_fifo_full) begin isr_reg[29] <= 1'b1; isr_reg[2]  <= 1'b1; end // TXFLL
+            if (tx_hpb_full)  begin isr_reg[28] <= 1'b1; isr_reg[3]  <= 1'b1; end // TXBFLL
+            if (rx_ok)        begin isr_reg[27] <= 1'b1; isr_reg[4]  <= 1'b1; end // RXOK
+            if (rx_underflow) begin isr_reg[26] <= 1'b1; isr_reg[5]  <= 1'b1; end // RXUFLW
+            if (rx_fifo_full) begin isr_reg[25] <= 1'b1; isr_reg[6]  <= 1'b1; end // RXOFLW
+            if (rx_not_empty) begin isr_reg[24] <= 1'b1; isr_reg[7]  <= 1'b1; end // RXNEMP
+            if (error_status) begin isr_reg[23] <= 1'b1; isr_reg[8]  <= 1'b1; end // ERROR
+            if (bus_off)      begin isr_reg[22] <= 1'b1; isr_reg[9]  <= 1'b1; end // BSOFF
+            if (sleep_mode_entered) begin isr_reg[21] <= 1'b1; isr_reg[10] <= 1'b1; end // SLP
+            if (wakeup_event)       begin isr_reg[20] <= 1'b1; isr_reg[11] <= 1'b1; end // WKUP
 
-            // HW Event Sets in ESR
-            if (err_crcer) esr_reg[0] <= 1'b1; // bit 31 = bit 0
-            if (err_fmer)  esr_reg[1] <= 1'b1; // bit 30
-            if (err_ster)  esr_reg[2] <= 1'b1; // bit 29
-            if (err_berr)  esr_reg[3] <= 1'b1; // bit 28
-            if (err_acker) esr_reg[4] <= 1'b1; // bit 27
+            // HW Event Sets in ESR (Xilinx DS791 Table 18 MSB format + LSB mirror)
+            if (err_acker) begin esr_reg[31] <= 1'b1; esr_reg[4] <= 1'b1; end // ACKER
+            if (err_berr)  begin esr_reg[30] <= 1'b1; esr_reg[3] <= 1'b1; end // BERR
+            if (err_ster)  begin esr_reg[29] <= 1'b1; esr_reg[2] <= 1'b1; end // STER
+            if (err_fmer)  begin esr_reg[28] <= 1'b1; esr_reg[1] <= 1'b1; end // FMER
+            if (err_crcer) begin esr_reg[27] <= 1'b1; esr_reg[0] <= 1'b1; end // CRCER
 
             // Host Register Writes
             if (reg_wr_en && is_valid_addr && !is_readonly) begin
                 case (reg_addr)
                     ADDR_SRR: begin
                         if (reg_wstrb[0] && reg_wdata[0]) begin
-                            // Software Reset (SRR[0])
+                            // Software Reset: SRR[0]=SRST (Xilinx DS791)
                             srst_reg  <= 1'b1;
                             cen_reg   <= 1'b0;
                             lback_reg <= 1'b0;
@@ -272,16 +272,19 @@ module can_reg_file #(
                             isr_reg   <= 32'd0;
                             ier_reg   <= 32'd0;
                         end else begin
-                            // CEN bit (SRR[1])
+                            // CEN bit: SRR[1]=CEN (Xilinx DS791)
+                            // Also accept the legacy high-bit position (SRR[30]) for compatibility
                             if (reg_wstrb[0])
-                                cen_reg <= reg_wdata[1] || reg_wdata[30];
+                                cen_reg <= reg_wdata[1] | reg_wdata[30];
                         end
                     end
 
                     ADDR_MSR: begin
                         if (config_mode && reg_wstrb[0]) begin
-                            lback_reg <= reg_wdata[1] || reg_wdata[30];
-                            sleep_reg <= reg_wdata[0] || reg_wdata[31];
+                            // MSR[1]=LBACK, MSR[0]=SLEEP (Xilinx DS791)
+                            // Also accept high-bit positions for compatibility
+                            lback_reg <= reg_wdata[1] | reg_wdata[30];
+                            sleep_reg <= reg_wdata[0] | reg_wdata[31];
                         end
                     end
 
@@ -293,9 +296,10 @@ module can_reg_file #(
 
                     ADDR_BTR: begin
                         if (config_mode && reg_wstrb[0]) begin
+                            // Xilinx DS791 BTR: [3:0]=TSEG1, [6:4]=TSEG2, [8:7]=SJW
                             tseg1 <= reg_wdata[3:0];
-                            tseg2 <= reg_wdata[6:4] | reg_wdata[7:5];
-                            sjw   <= reg_wdata[8:7] | reg_wdata[9:8];
+                            tseg2 <= reg_wdata[6:4];
+                            sjw   <= reg_wdata[8:7];
                         end
                     end
 
@@ -315,7 +319,7 @@ module can_reg_file #(
 
                     ADDR_TX_ID: begin
                         tx_id     <= reg_wdata[31:21];
-                        tx_rtr    <= reg_wdata[20] | reg_wdata[0];
+                        tx_rtr    <= reg_wdata[0];
                         tx_ide    <= reg_wdata[19];
                         tx_ext_id <= reg_wdata[18:1];
                     end
@@ -336,7 +340,7 @@ module can_reg_file #(
 
                     ADDR_TXHPB_ID: begin
                         tx_hpb_id     <= reg_wdata[31:21];
-                        tx_hpb_rtr    <= reg_wdata[20] | reg_wdata[0];
+                        tx_hpb_rtr    <= reg_wdata[0];
                         tx_hpb_ide    <= reg_wdata[19];
                         tx_hpb_ext_id <= reg_wdata[18:1];
                     end
@@ -421,13 +425,27 @@ module can_reg_file #(
                     end
 
                     ADDR_SR: begin
-                        // DS791 Table 19:
+                        // DS791 Table 19 (Xilinx standard bit mapping):
                         // [31]=CONFIG, [30]=LBACK, [29]=SLEEP, [28]=NORMAL, [27]=BIDLE, [26]=BBSY,
                         // [25]=ERRWRN, [24:23]=ESTAT, [22]=TXBFLL, [21]=TXFLL, [20]=ACFBSY
+                        reg_rdata[31]    = config_mode;
+                        reg_rdata[30]    = lback_reg && cen_reg;
+                        reg_rdata[29]    = sleep_reg && cen_reg;
+                        reg_rdata[28]    = cen_reg && !lback_reg && !sleep_reg; // NORMAL
+                        reg_rdata[27]    = bus_idle;
+                        reg_rdata[26]    = bus_busy;
+                        reg_rdata[25]    = error_warning;
+                        reg_rdata[24:23] = estat;
+                        reg_rdata[22]    = tx_hpb_full;
+                        reg_rdata[21]    = tx_fifo_full;
+                        reg_rdata[20]    = acfb_busy;
+                        reg_rdata[19:12] = 8'd0;
+
+                        // Low-order mirror for convenience
                         reg_rdata[0]     = config_mode;
                         reg_rdata[1]     = lback_reg && cen_reg;
                         reg_rdata[2]     = sleep_reg && cen_reg;
-                        reg_rdata[3]     = cen_reg && !lback_reg && !sleep_reg; // NORMAL
+                        reg_rdata[3]     = cen_reg && !lback_reg && !sleep_reg;
                         reg_rdata[4]     = bus_idle;
                         reg_rdata[5]     = bus_busy;
                         reg_rdata[6]     = error_warning;
@@ -435,7 +453,6 @@ module can_reg_file #(
                         reg_rdata[9]     = tx_hpb_full;
                         reg_rdata[10]    = tx_fifo_full;
                         reg_rdata[11]    = acfb_busy;
-                        reg_rdata[31:12] = 20'd0;
                     end
 
                     ADDR_ISR: begin

@@ -357,7 +357,6 @@ module can_bsp (
             crc_clear        <= 1'b0;
             crc_update_en    <= 1'b0;
             destuff_reset    <= 1'b0;
-
             // -------------------------------------------------------------
             // A. TRANSMIT VERIFICATION AT sample_point
             // -------------------------------------------------------------
@@ -665,11 +664,10 @@ module can_bsp (
                                 default: ;
                             endcase
 
-                            // The current data bit has been consumed by the
-                            // normal FSM. Insert the stuff bit before the
-                            // next data bit when this bit completed a run.
-                            if (stuff_en && (stuff_count == 3'd5))
+                            if (stuff_en && (stuff_count == 3'd5) &&
+                                (raw_bit == last_stuff_bit))
                                 insert_stuff <= 1'b1;
+
                         end
                     end
                 end
@@ -886,7 +884,8 @@ module can_bsp (
 
                         if (rx_bit_cnt == 6'd0) begin
                             // Check if frame has data
-                            if (!rx_srr_rtr && (({rx_dlc_reg[3:1], destuffed_bit_out}) > 4'd0)) begin
+                            if (!(rx_ide_bit ? rx_ext_rtr : rx_srr_rtr) &&
+                                (({rx_dlc_reg[3:1], destuffed_bit_out}) > 4'd0)) begin
                                 rx_state    <= RX_DATA;
                                 rx_bit_cnt  <= 6'd0;
                                 rx_data_reg <= 64'd0;
@@ -1010,6 +1009,16 @@ module can_bsp (
                     rx_state <= RX_IDLE;
                 end
             endcase
+
+            // Keep error indications asserted while either protocol engine is
+            // handling the error, then clear them at the next fully idle point.
+            if ((state == ST_IDLE) && (rx_state == RX_IDLE) && !tx_frame_avail) begin
+                err_acker <= 1'b0;
+                err_berr  <= 1'b0;
+                err_ster  <= 1'b0;
+                err_fmer  <= 1'b0;
+                err_crcer <= 1'b0;
+            end
 
             // Arbitration loss aborts any receive parse of the competing frame.
             if (arbitration_lost_event) begin

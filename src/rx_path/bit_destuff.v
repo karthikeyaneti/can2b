@@ -27,8 +27,11 @@ module bit_destuff (
             destuffed_bit_valid <= 1'b0;
             stuff_bit_dropped   <= 1'b0;
             stuff_error         <= 1'b0;
-            run_len             <= 3'd0;
-            last_bit            <= RECESSIVE;
+            // SOF is dominant and belongs to the stuffed field.  Preserve it
+            // as the first run bit so a stuff bit immediately after SOF is
+            // recognized rather than delivered as frame data.
+            run_len             <= 3'd1;
+            last_bit            <= DOMINANT;
         end else begin
             destuffed_bit_valid <= 1'b0;
             stuff_bit_dropped   <= 1'b0;

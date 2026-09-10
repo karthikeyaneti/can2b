@@ -24,12 +24,10 @@ module can_btl_top (
     output wire       bit_tick
 );
 
-    wire can_rst_n_sync;
-    reset_synchronizer reset_sync (
-        .clk        (can_clk),
-        .rst_n_async(can_rst_n),
-        .rst_n_sync (can_rst_n_sync)
-    );
+    // can_rst_n is already synchronized by the caller (can_channel_core).
+    // Using it directly avoids adding an extra pipeline stage that would skew
+    // the BTL reset relative to the rest of the CAN engine.
+    wire can_rst_n_sync = can_rst_n;
 
     wire rx_sync;
     two_ff_synchronizer #(

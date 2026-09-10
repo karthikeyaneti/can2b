@@ -119,9 +119,12 @@ module can_bit_timing_logic (
         end
     end
 
+    // Hard synchronization: only on a Recessive→Dominant edge while bus_idle,
+    // or when in SEG_IDLE waiting for first edge. ISO 11898-1 §10.3.6.
+    // Do NOT trigger on rx_sync==DOMINANT level — that causes repeated re-sync
+    // while a long dominant is being received.
     wire hard_sync_trigger = (bus_idle && dominant_edge) ||
-                             ((present_seg == SEG_IDLE) &&
-                              (dominant_edge || edge_available || (rx_sync == DOMINANT)));
+                             ((present_seg == SEG_IDLE) && (dominant_edge || edge_available));
 
     always @(posedge can_clk) begin
         if (!can_rst_n_sync || config_mode) begin

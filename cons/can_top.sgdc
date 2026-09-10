@@ -1,0 +1,100 @@
+## can_top.sgdc
+## Synopsys SpyGlass CDC Constraint File
+## Two asynchronous clock domains:
+##   DOMAIN_APB  : driven by s_apb_pclk (100 MHz from Zynq PS FCLK)
+##   DOMAIN_CAN  : driven by can_clk (configurable, e.g. 20–80 MHz from Clocking Wizard)
+##
+## Usage:
+##   spyglass -enable cdc -design can_top -top can_top \
+##            -constraints cons/can_top.sgdc -rtl [list of RTL files]
+##
+## -------------------------------------------------------------------------
+## 1. Define clocks
+## -------------------------------------------------------------------------
+current_design can_top
+
+define_clock            -name s_apb_pclk   -period 10    [get_ports s_apb_pclk]
+define_clock            -name can_clk      -period 50    [get_ports can_clk]
+
+## -------------------------------------------------------------------------
+## 2. Define clock domains (groups)
+## -------------------------------------------------------------------------
+define_clock_domain     -name DOMAIN_APB   [get_clocks s_apb_pclk]
+define_clock_domain     -name DOMAIN_CAN   [get_clocks can_clk]
+
+## Declare the two domains as independent (asynchronous)
+set_clock_domain_relationship -async DOMAIN_APB DOMAIN_CAN
+
+## -------------------------------------------------------------------------
+## 3. Asynchronous resets
+## -------------------------------------------------------------------------
+## External resets are asynchronous inputs; declare so CDC tools do not
+## attempt to trace combinational paths from them through the design.
+define_reset  -name s_apb_presetn -active_low  [get_ports s_apb_presetn]
+define_reset  -name can_resetn    -active_low  [get_ports can_resetn]
+
+## -------------------------------------------------------------------------
+## 4. Input / output port attributes
+## -------------------------------------------------------------------------
+## can_rx is an asynchronous physical signal — it crosses into can_clk domain
+## through the two_ff_synchronizer inside can_btl_top.
+define_input_domain_type [get_ports can_rx] -domain NONE
+
+## -------------------------------------------------------------------------
+## 5. CDC Synchronizer Declarations
+## -------------------------------------------------------------------------
+## Tell SpyGlass which cells are synchronizers so it does not report their
+## first-stage flops as unsynchronized crossings.
+
+## Reset synchronizers (reset_synchronizer module)
+## First stage (S1) is the metastable flop; second stage (S2) is the output.
+define_synchronizer -type single_flop \
+    [get_cells -hier -regexp {.*reset_synchronizer.*/(S1|S1_reg)$}]
+
+## Level (data) synchronizers (two_ff_synchronizer module)
+define_synchronizer -type single_flop \
+    [get_cells -hier -regexp {.*two_ff_synchronizer.*/(S1|S1_reg)$}]
+
+## Pulse synchronizers (pulse_synchronizer module)
+## The toggle register crosses domains; the dst_sync1/dst_sync2 chain is the sync.
+define_synchronizer -type single_flop \
+    [get_cells -hier -regexp {.*pulse_synchronizer.*/(dst_sync1|dst_sync1_reg)$}]
+
+## -------------------------------------------------------------------------
+## 6. FIFO Gray pointer CDC constraints
+## -------------------------------------------------------------------------
+## The FIFO Gray pointer registers (wr_ptr_gray / rd_ptr_gray) are the
+## asynchronous sources; their synchronized versions are in wr_ptr_sync /
+## rd_ptr_sync (two_ff_synchronizer instances inside can_fifo).
+
+## Declare FIFO write-pointer Gray as crossing from CAN domain to APB domain.
+define_cdc_path -from [get_pins -hier -regexp {.*u_can_fifo/wr_ptr_gray_reg.*/Q$}] \
+                -to   [get_pins -hier -regexp {.*wr_ptr_sync.*/S1_reg.*/D$}] \
+                -type gray_code
+
+## Declare FIFO read-pointer Gray as crossing from APB domain to CAN domain.
+define_cdc_path -from [get_pins -hier -regexp {.*u_can_fifo/rd_ptr_gray_reg.*/Q$}] \
+                -to   [get_pins -hier -regexp {.*rd_ptr_sync.*/S1_reg.*/D$}] \
+                -type gray_code
+
+## -------------------------------------------------------------------------
+## 7. Waive known-safe paths
+## -------------------------------------------------------------------------
+## Configuration registers (brp, tseg1, tseg2, sjw, cen_reg, lback_reg,
+## sleep_reg) are only written in config_mode (CEN=0) and read in the CAN
+## clock domain. When CEN transitions from 0→1 the CAN engine is taken out of
+## reset, ensuring the registers are stable before the CAN clock consumes them.
+## These are quasi-static signals; waive as multi-cycle.
+cdc_preference set_false_path \
+    -from [get_pins -hier -regexp {.*u_reg_file/(brp|tseg1|tseg2|sjw|cen_reg|lback_reg|sleep_reg)_reg.*/Q$}] \
+    -comment "Config registers are stable before CAN engine start"
+
+## -------------------------------------------------------------------------
+## 8. Target lint rules (zero-violation targets for clean sign-off)
+## -------------------------------------------------------------------------
+## These are the SpyGlass CDC rules that must show 0 violations for tapeout.
+## Run with: spyglass -goal cdc_verify_struct
+##   CDC-UNSYNC  : Unsynchronized CDC crossing
+##   CDC-RESET   : Reset CDC issues
+##   CDC-GLITCH  : Reconverging CDC paths
+##   CDC-COMBO   : Combinational logic on CDC path output

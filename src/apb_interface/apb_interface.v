@@ -52,18 +52,9 @@ module apb_interface #(
         if (psel && penable) begin
             pready = 1'b1;
             pslverr = reg_err;
-            if (pwrite)
+            if (pwrite) begin
                 reg_wr_en = 1'b1;
-            else if (paddr == 12'h050) begin
-                prdata = rx_idr;
-            end else if (paddr == 12'h054) begin
-                prdata = rx_dlcr;
-            end else if (paddr == 12'h058) begin
-                prdata = {rx_dw1r[7:0], rx_dw1r[15:8], rx_dw1r[23:16], rx_dw1r[31:24]};
-            end else if (paddr == 12'h05C) begin
-                prdata = {rx_dw2r[7:0], rx_dw2r[15:8], rx_dw2r[23:16], rx_dw2r[31:24]};
-            end
-            else begin
+            end else begin
                 reg_rd_en = 1'b1;
                 prdata = reg_rdata;
             end
