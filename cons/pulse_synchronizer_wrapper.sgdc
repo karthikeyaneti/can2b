@@ -2,8 +2,11 @@
 
 current_design "pulse_synchronizer_wrapper"
 
-clock -name "src_clk" -period 10.0 -edge {0.0 5.0} -domain "SOURCE"
-clock -name "dst_clk" -period 25.0 -edge {0.0 12.5} -domain "DESTINATION"
+// CAN source clock: representative 20 MHz Clocking Wizard output.
+// Keep this period equal to the implemented can_clk frequency.
+clock -name "src_clk" -period 50.0 -edge {0.0 25.0} -domain "CAN"
+// APB/PS destination clock: Blackboard FCLK_CLK0 default is 100 MHz.
+clock -name "dst_clk" -period 10.0 -edge {0.0 5.0} -domain "APB"
 reset -name "src_rst_n" -value 0 -async
 reset -name "dst_rst_n" -value 0 -async
 
