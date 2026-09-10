@@ -7,9 +7,14 @@ clock -name "dst_clk" -period 25.0 -edge {0.0 12.5} -domain "DESTINATION"
 reset -name "src_rst_n" -value 0 -async
 reset -name "dst_rst_n" -value 0 -async
 
-input  -name "src_clk"   -clock "src_clk"
-input  -name "src_rst_n" -clock "src_clk"
+reset_synchronizer -name "src_rst_n_sync" \
+				   -clock "src_clk" \
+				   -reset "src_rst_n" \
+				   -value 0
+reset_synchronizer -name "dst_rst_n_sync" \
+				   -clock "dst_clk" \
+				   -reset "dst_rst_n" \
+				   -value 0
+
 input  -name "src_pulse" -clock "src_clk"
-input  -name "dst_clk"   -clock "dst_clk"
-input  -name "dst_rst_n" -clock "dst_clk"
 output -name "dst_pulse" -clock "dst_clk"

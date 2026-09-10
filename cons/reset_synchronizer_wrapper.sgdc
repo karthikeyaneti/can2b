@@ -5,7 +5,7 @@ current_design "reset_synchronizer_wrapper"
 clock -name "clk" -period 10.0 -edge {0.0 5.0} -domain "SYNC"
 reset -name "rst_n_async" -value 0 -async
 
-reset_synchronizer -name "u_sync.S2" \
+reset_synchronizer -name "rst_n_sync" \
                    -clock "clk" \
                    -reset "rst_n_async" \
                    -value 0
