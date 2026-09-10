@@ -26,16 +26,8 @@ qualifier -from_clk "pclk" -to_clk "can_clk" \
           -dest_reg "u_rx_path.u_rx_fifo.u_can_fifo.rd_ptr_sync.S1" \
                      "u_rx_path.u_rx_fifo.u_can_fifo.rd_ptr_sync.S2"
 
-fifo -memory "u_tx_path_core.u_tx_fifo.u_can_fifo.fifo_mem" \
-     -wr_data "u_tx_path_core.u_tx_fifo.u_can_fifo.wr_data" \
-     -rd_data "u_tx_path_core.u_tx_fifo.u_can_fifo.rd_data" \
-     -wr_ptr  "u_tx_path_core.u_tx_fifo.u_can_fifo.wr_ptr" \
-     -rd_ptr  "u_tx_path_core.u_tx_fifo.u_can_fifo.rd_ptr"
-fifo -memory "u_rx_path.u_rx_fifo.u_can_fifo.fifo_mem" \
-     -wr_data "u_rx_path.u_rx_fifo.u_can_fifo.wr_data" \
-     -rd_data "u_rx_path.u_rx_fifo.u_can_fifo.rd_data" \
-     -wr_ptr  "u_rx_path.u_rx_fifo.u_can_fifo.wr_ptr" \
-     -rd_ptr  "u_rx_path.u_rx_fifo.u_can_fifo.rd_ptr"
+fifo -memory "u_tx_path_core.u_tx_fifo.u_can_fifo"
+fifo -memory "u_rx_path.u_rx_fifo.u_can_fifo"
 
 input  -name "pclk"     -clock "pclk"
 input  -name "can_clk"  -clock "can_clk"

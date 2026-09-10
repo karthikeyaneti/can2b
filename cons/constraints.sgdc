@@ -34,11 +34,7 @@ qualifier -from_clk "can_fifo.rd_clk" -to_clk "can_fifo.wr_clk" -dest_reg "can_f
 //-----------------------------------------------------------------------------
 // 4. FIFO Memory Recognition for CDC & Lint (Waives Ac_unsync02 & STARC Lint)
 //-----------------------------------------------------------------------------
-fifo -memory "fifo_mem" \
-     -wr_data "can_fifo.wr_data" \
-     -rd_data "can_fifo.rd_data" \
-     -wr_ptr "can_fifo.wr_ptr" \
-     -rd_ptr "can_fifo.rd_ptr"
+fifo -memory "can_fifo"
 
 // Instruct SpyGlass that fifo_mem is a Memory/RAM array (no async reset needed)
 waive -rule "STARC-2.3.4.3" -tag "RAM_NO_ASYNC_RESET" -comment "FIFO RAM array does not require async reset"

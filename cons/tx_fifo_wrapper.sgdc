@@ -18,11 +18,7 @@ reset_synchronizer -name "u_rd_reset.S2" \
                    -reset "rd_rst_n_async" \
                    -value 0
 
-fifo -memory "u_fifo.u_can_fifo.fifo_mem" \
-     -wr_data "u_fifo.u_can_fifo.wr_data" \
-     -rd_data "u_fifo.u_can_fifo.rd_data" \
-     -wr_ptr  "u_fifo.u_can_fifo.wr_ptr" \
-     -rd_ptr  "u_fifo.u_can_fifo.rd_ptr"
+fifo -memory "u_fifo.u_can_fifo"
 
 input  -name "tx_wr_en"   -clock "wr_clk"
 input  -name "tx_wr_id"   -clock "wr_clk"
