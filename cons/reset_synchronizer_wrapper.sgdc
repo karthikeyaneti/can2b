@@ -1,0 +1,15 @@
+// SpyGlass lint and CDC constraints for reset_synchronizer_wrapper.
+
+current_design "reset_synchronizer_wrapper"
+
+clock -name "clk" -period 10.0 -edge {0.0 5.0} -domain "SYNC"
+reset -name "rst_n_async" -value 0 -async
+
+reset_synchronizer -name "u_sync.S2" \
+                   -clock "clk" \
+                   -reset "rst_n_async" \
+                   -value 0
+
+input  -name "clk"        -clock "clk"
+input  -name "rst_n_async" -clock "clk"
+output -name "rst_n_sync" -clock "clk"
