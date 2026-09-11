@@ -1,11 +1,10 @@
 /**
  * @file can_controller.h
- * @brief APB CAN 2.0B Controller Register Map - Xilinx DS791 Compatible
+ * @brief APB CAN 2.0B Controller Register Map
  *
- * This header provides register offsets and bit-field masks that are
- * IDENTICAL to the Xilinx AXI CAN IP (DS791) driver interface.
- * The same C code used with xcan.h / xcanps.h will work with this
- * CAN controller by substituting the base address only.
+ * The offsets and bit fields below match the register locations implemented
+ * by src/can_reg_file/can_reg_file.v. Addresses are byte offsets on the
+ * 12-bit APB address bus; all registers are 32 bits wide and word aligned.
  *
  * Reference: Xilinx DS791 (AXI CAN Product Guide), PG021
  *
@@ -28,8 +27,8 @@
 #include <stdint.h>
 
 /* =========================================================================
- * Register Offsets (word-aligned, APB byte address from base)
- * Identical to Xilinx AXI CAN DS791 Table 6
+ * Register Offsets (word-aligned APB byte offsets from base)
+ * These values are the can_reg_file register locations.
  * ========================================================================= */
 #define XCAN_SRR_OFFSET     0x000U  /**< Software Reset Register         */
 #define XCAN_MSR_OFFSET     0x004U  /**< Mode Select Register            */

@@ -20,10 +20,6 @@ module can_channel_core #(
     input  wire [3:0]  reg_wstrb,
     output wire [31:0] reg_rdata,
     output wire        reg_err,
-    output wire [31:0] rx_idr_apb,
-    output wire [31:0] rx_dlcr_apb,
-    output wire [31:0] rx_dw1r_apb,
-    output wire [31:0] rx_dw2r_apb,
 
     // CAN Engine Clock
     input  wire        can_clk,
@@ -480,10 +476,5 @@ module can_channel_core #(
     //  Physical CAN TX output
     // =========================================================================
     assign can_tx = lback ? 1'b1 : can_tx_bit; // In loopback, don't drive bus
-
-    assign rx_idr_apb  = rx_idr_host;
-    assign rx_dlcr_apb = rx_dlcr_host;
-    assign rx_dw1r_apb = rx_dw1r_host;
-    assign rx_dw2r_apb = rx_dw2r_host;
 
 endmodule

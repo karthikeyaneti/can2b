@@ -25,8 +25,7 @@ module tb_apb_interface;
         .pprot(pprot), .prdata(prdata), .pready(pready), .pslverr(pslverr),
         .reg_addr(reg_addr), .reg_wr_en(reg_wr_en), .reg_rd_en(reg_rd_en),
         .reg_wdata(reg_wdata), .reg_wstrb(reg_wstrb), .reg_rdata(reg_rdata),
-        .reg_err(reg_err), .rx_idr(32'd0), .rx_dlcr(32'd0),
-        .rx_dw1r(32'd0), .rx_dw2r(32'd0)
+        .reg_err(reg_err)
     );
 
     initial begin

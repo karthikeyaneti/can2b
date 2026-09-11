@@ -1,7 +1,7 @@
 `timescale 1ns/1ps
 
 module apb_interface #(
-    parameter ADDR_WIDTH = 32,
+    parameter ADDR_WIDTH = 12,
     parameter DATA_WIDTH = 32,
     parameter STRB_WIDTH = DATA_WIDTH / 8
 ) (
@@ -30,11 +30,7 @@ module apb_interface #(
     output  reg [DATA_WIDTH-1:0]  reg_wdata,
     output  reg [STRB_WIDTH-1:0]  reg_wstrb,
     input   wire [DATA_WIDTH-1:0] reg_rdata,
-    input   wire                  reg_err,
-    input   wire [31:0]           rx_idr,
-    input   wire [31:0]           rx_dlcr,
-    input   wire [31:0]           rx_dw1r,
-    input   wire [31:0]           rx_dw2r
+    input   wire                  reg_err
 );
 
     // The register bank is on this clock, so every valid APB access completes
