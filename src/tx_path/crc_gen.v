@@ -28,7 +28,7 @@ module crc_gen (
     wire start_emit = crc_emit_en && !crc_emit_en_d;
     wire accept_in  = bit_in_valid && bit_in_ready;
 
-    function [14:0] crc_step;
+    function automatic [14:0] crc_step;
         input [14:0] current_crc;
         input        data_bit;
         reg          feedback;
@@ -55,11 +55,57 @@ module crc_gen (
     assign bit_in_ready = !emit_active && !crc_emit_en;
     assign crc_value = crc_reg;
 
+    reg [14:0] next_crc_reg;
+    reg [14:0] next_crc_shift;
+    reg [3:0]  next_emit_count;
+    reg        next_emit_active;
+    reg        next_bit_out;
+    reg        next_bit_out_valid;
+    reg        next_crc_emit_done;
+
     always @(*) begin
         next_crc = crc_step(crc_reg, bit_in);
+
+        next_crc_reg       = crc_reg;
+        next_crc_shift     = crc_shift;
+        next_emit_count    = emit_count;
+        next_emit_active   = emit_active;
+        next_bit_out       = bit_out;
+        next_bit_out_valid = 1'b0;
+        next_crc_emit_done = 1'b0;
+
+        if (crc_clear) begin
+            next_crc_reg     = (accept_in && crc_update_en) ? crc_step(15'd0, bit_in) : 15'd0;
+            next_crc_shift   = 15'd0;
+            next_emit_count  = 4'd0;
+            next_emit_active = 1'b0;
+        end else if (start_emit) begin
+            next_crc_shift   = crc_reg;
+            next_emit_count  = 4'd15;
+            next_emit_active = 1'b1;
+        end else if (emit_active) begin
+            next_bit_out       = crc_shift[14];
+            next_bit_out_valid = 1'b1;
+            next_crc_shift     = {crc_shift[13:0], 1'b0};
+
+            if (emit_count == 4'd1) begin
+                next_emit_count    = 4'd0;
+                next_emit_active   = 1'b0;
+                next_crc_emit_done = 1'b1;
+            end else begin
+                next_emit_count = emit_count - 4'd1;
+            end
+        end else if (accept_in) begin
+            next_bit_out       = bit_in;
+            next_bit_out_valid = 1'b1;
+
+            if (crc_update_en) begin
+                next_crc_reg = next_crc;
+            end
+        end
     end
 
-    always @(posedge can_clk) begin
+    always @(posedge can_clk or negedge can_rst_n_sync) begin
         if (!can_rst_n_sync) begin
             crc_reg       <= 15'd0;
             crc_shift     <= 15'd0;
@@ -71,38 +117,13 @@ module crc_gen (
             crc_emit_done <= 1'b0;
         end else begin
             crc_emit_en_d <= crc_emit_en;
-            bit_out_valid <= 1'b0;
-            crc_emit_done <= 1'b0;
-
-            if (crc_clear) begin
-                crc_reg     <= (accept_in && crc_update_en) ? crc_step(15'd0, bit_in) : 15'd0;
-                crc_shift   <= 15'd0;
-                emit_count  <= 4'd0;
-                emit_active <= 1'b0;
-            end else if (start_emit) begin
-                crc_shift   <= crc_reg;
-                emit_count  <= 4'd15;
-                emit_active <= 1'b1;
-            end else if (emit_active) begin
-                bit_out       <= crc_shift[14];
-                bit_out_valid <= 1'b1;
-                crc_shift     <= {crc_shift[13:0], 1'b0};
-
-                if (emit_count == 4'd1) begin
-                    emit_count    <= 4'd0;
-                    emit_active   <= 1'b0;
-                    crc_emit_done <= 1'b1;
-                end else begin
-                    emit_count <= emit_count - 4'd1;
-                end
-            end else if (accept_in) begin
-                bit_out       <= bit_in;
-                bit_out_valid <= 1'b1;
-
-                if (crc_update_en) begin
-                    crc_reg <= next_crc;
-                end
-            end
+            crc_reg       <= next_crc_reg;
+            crc_shift     <= next_crc_shift;
+            emit_count    <= next_emit_count;
+            emit_active   <= next_emit_active;
+            bit_out       <= next_bit_out;
+            bit_out_valid <= next_bit_out_valid;
+            crc_emit_done <= next_crc_emit_done;
         end
     end
 

@@ -12,7 +12,7 @@ module can_baud_gen (
 
     reg [7:0] tq_count;
 
-    always @(posedge can_clk) begin
+    always @(posedge can_clk or negedge can_rst_n_sync) begin
         if (!can_rst_n_sync) begin
             tq_tick  <= 1'b0;
             tq_count <= 8'd0;

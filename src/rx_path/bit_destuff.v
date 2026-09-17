@@ -21,53 +21,76 @@ module bit_destuff (
     reg [2:0] run_len;
     reg       last_bit;
 
-    always @(posedge can_clk) begin
-        if (!can_rst_n_sync || destuff_reset) begin
+    reg [2:0] next_run_len;
+    reg       next_last_bit;
+    reg       next_destuffed_bit_out;
+    reg       next_destuffed_bit_valid;
+    reg       next_stuff_bit_dropped;
+    reg       next_stuff_error;
+
+    always @(*) begin
+        next_run_len             = run_len;
+        next_last_bit            = last_bit;
+        next_destuffed_bit_out   = destuffed_bit_out;
+        next_destuffed_bit_valid = 1'b0;
+        next_stuff_bit_dropped   = 1'b0;
+        next_stuff_error         = 1'b0;
+
+        if (sample_point) begin
+            if (!destuff_en) begin
+                next_destuffed_bit_out   = raw_bit_in;
+                next_destuffed_bit_valid = 1'b1;
+                next_run_len             = 3'd0;
+                next_last_bit            = raw_bit_in;
+            end else begin
+                if (run_len == 3'd5) begin
+                    if (raw_bit_in == ~last_bit) begin
+                        // Valid complementary stuff bit -> drop it from data stream
+                        next_stuff_bit_dropped = 1'b1;
+                        next_run_len           = 3'd1;
+                        next_last_bit          = raw_bit_in;
+                    end else begin
+                        // 6 consecutive identical bits during stuffed field -> Stuff Error!
+                        next_stuff_error = 1'b1;
+                        next_run_len     = 3'd0;
+                    end
+                end else begin
+                    next_destuffed_bit_out   = raw_bit_in;
+                    next_destuffed_bit_valid = 1'b1;
+
+                    if (run_len != 3'd0 && raw_bit_in == last_bit) begin
+                        next_run_len = run_len + 3'd1;
+                    end else begin
+                        next_run_len  = 3'd1;
+                        next_last_bit = raw_bit_in;
+                    end
+                end
+            end
+        end
+    end
+
+    always @(posedge can_clk or negedge can_rst_n_sync) begin
+        if (!can_rst_n_sync) begin
             destuffed_bit_out   <= RECESSIVE;
             destuffed_bit_valid <= 1'b0;
             stuff_bit_dropped   <= 1'b0;
             stuff_error         <= 1'b0;
-            // SOF is dominant and belongs to the stuffed field.  Preserve it
-            // as the first run bit so a stuff bit immediately after SOF is
-            // recognized rather than delivered as frame data.
             run_len             <= 3'd1;
             last_bit            <= DOMINANT;
-        end else begin
+        end else if (destuff_reset) begin
+            destuffed_bit_out   <= RECESSIVE;
             destuffed_bit_valid <= 1'b0;
             stuff_bit_dropped   <= 1'b0;
             stuff_error         <= 1'b0;
-
-            if (sample_point) begin
-                if (!destuff_en) begin
-                    destuffed_bit_out   <= raw_bit_in;
-                    destuffed_bit_valid <= 1'b1;
-                    run_len             <= 3'd0;
-                    last_bit            <= raw_bit_in;
-                end else begin
-                    if (run_len == 3'd5) begin
-                        if (raw_bit_in == ~last_bit) begin
-                            // Valid complementary stuff bit -> drop it from data stream
-                            stuff_bit_dropped <= 1'b1;
-                            run_len           <= 3'd1;
-                            last_bit          <= raw_bit_in;
-                        end else begin
-                            // 6 consecutive identical bits during stuffed field -> Stuff Error!
-                            stuff_error <= 1'b1;
-                            run_len     <= 3'd0;
-                        end
-                    end else begin
-                        destuffed_bit_out   <= raw_bit_in;
-                        destuffed_bit_valid <= 1'b1;
-
-                        if (run_len != 3'd0 && raw_bit_in == last_bit) begin
-                            run_len <= run_len + 3'd1;
-                        end else begin
-                            run_len  <= 3'd1;
-                            last_bit <= raw_bit_in;
-                        end
-                    end
-                end
-            end
+            run_len             <= 3'd1;
+            last_bit            <= DOMINANT;
+        end else begin
+            destuffed_bit_out   <= next_destuffed_bit_out;
+            destuffed_bit_valid <= next_destuffed_bit_valid;
+            stuff_bit_dropped   <= next_stuff_bit_dropped;
+            stuff_error         <= next_stuff_error;
+            run_len             <= next_run_len;
+            last_bit            <= next_last_bit;
         end
     end
 

@@ -190,6 +190,27 @@ module can_reg_file #(
         {8{reg_wstrb[1]}}, {8{reg_wstrb[0]}}
     };
 
+    wire [31:0] isr_hw_set =
+          (arblst             ? 32'h8000_0001 : 32'd0)
+        | (tx_ok              ? 32'h4000_0002 : 32'd0)
+        | (tx_fifo_full       ? 32'h2000_0004 : 32'd0)
+        | (tx_hpb_full        ? 32'h1000_0008 : 32'd0)
+        | (rx_ok              ? 32'h0800_0010 : 32'd0)
+        | (rx_underflow       ? 32'h0400_0020 : 32'd0)
+        | (rx_fifo_full       ? 32'h0200_0040 : 32'd0)
+        | (rx_not_empty       ? 32'h0100_0080 : 32'd0)
+        | (error_status       ? 32'h0080_0100 : 32'd0)
+        | (bus_off            ? 32'h0040_0200 : 32'd0)
+        | (sleep_mode_entered ? 32'h0020_0400 : 32'd0)
+        | (wakeup_event       ? 32'h0010_0800 : 32'd0);
+
+    wire [31:0] esr_hw_set =
+          (err_acker ? 32'h8000_0010 : 32'd0)
+        | (err_berr  ? 32'h4000_0008 : 32'd0)
+        | (err_ster  ? 32'h2000_0004 : 32'd0)
+        | (err_fmer  ? 32'h1000_0002 : 32'd0)
+        | (err_crcer ? 32'h0800_0001 : 32'd0);
+
     // --- 1. APB Register Writes ---
     always @(posedge pclk or negedge presetn) begin
         if (!presetn) begin
@@ -238,41 +259,21 @@ module can_reg_file #(
             srst_reg     <= 1'b0;
 
             // HW Event Sets in ISR (Xilinx DS791 Table 20 MSB format + LSB mirror for compatibility)
-            if (arblst)       begin isr_reg[31] <= 1'b1; isr_reg[0]  <= 1'b1; end // ARBLST
-            if (tx_ok)        begin isr_reg[30] <= 1'b1; isr_reg[1]  <= 1'b1; end // TXOK
-            if (tx_fifo_full) begin isr_reg[29] <= 1'b1; isr_reg[2]  <= 1'b1; end // TXFLL
-            if (tx_hpb_full)  begin isr_reg[28] <= 1'b1; isr_reg[3]  <= 1'b1; end // TXBFLL
-            if (rx_ok)        begin isr_reg[27] <= 1'b1; isr_reg[4]  <= 1'b1; end // RXOK
-            if (rx_underflow) begin isr_reg[26] <= 1'b1; isr_reg[5]  <= 1'b1; end // RXUFLW
-            if (rx_fifo_full) begin isr_reg[25] <= 1'b1; isr_reg[6]  <= 1'b1; end // RXOFLW
-            if (rx_not_empty) begin isr_reg[24] <= 1'b1; isr_reg[7]  <= 1'b1; end // RXNEMP
-            if (error_status) begin isr_reg[23] <= 1'b1; isr_reg[8]  <= 1'b1; end // ERROR
-            if (bus_off)      begin isr_reg[22] <= 1'b1; isr_reg[9]  <= 1'b1; end // BSOFF
-            if (sleep_mode_entered) begin isr_reg[21] <= 1'b1; isr_reg[10] <= 1'b1; end // SLP
-            if (wakeup_event)       begin isr_reg[20] <= 1'b1; isr_reg[11] <= 1'b1; end // WKUP
-
-            // HW Event Sets in ESR (Xilinx DS791 Table 18 MSB format + LSB mirror)
-            if (err_acker) begin esr_reg[31] <= 1'b1; esr_reg[4] <= 1'b1; end // ACKER
-            if (err_berr)  begin esr_reg[30] <= 1'b1; esr_reg[3] <= 1'b1; end // BERR
-            if (err_ster)  begin esr_reg[29] <= 1'b1; esr_reg[2] <= 1'b1; end // STER
-            if (err_fmer)  begin esr_reg[28] <= 1'b1; esr_reg[1] <= 1'b1; end // FMER
-            if (err_crcer) begin esr_reg[27] <= 1'b1; esr_reg[0] <= 1'b1; end // CRCER
+            // Handled together with software writes below to avoid multiple assignments in sequential block
 
             // Host Register Writes
             if (reg_wr_en && is_valid_addr && !is_readonly) begin
                 case (reg_addr)
                     ADDR_SRR: begin
                         if (reg_wstrb[0] && reg_wdata[0]) begin
-                            // Software Reset: SRR[0]=SRST (Xilinx DS791)
+                            // Software Reset: SRR[0]=SRST
                             srst_reg  <= 1'b1;
                             cen_reg   <= 1'b0;
                             lback_reg <= 1'b0;
                             sleep_reg <= 1'b0;
-                            esr_reg   <= 32'd0;
-                            isr_reg   <= 32'd0;
                             ier_reg   <= 32'd0;
                         end else begin
-                            // CEN bit: SRR[1]=CEN (Xilinx DS791)
+                            // CEN bit: SRR[1]=CEN
                             // Also accept the legacy high-bit position (SRR[30]) for compatibility
                             if (reg_wstrb[0])
                                 cen_reg <= reg_wdata[1] | reg_wdata[30];
@@ -281,7 +282,7 @@ module can_reg_file #(
 
                     ADDR_MSR: begin
                         if (config_mode && reg_wstrb[0]) begin
-                            // MSR[1]=LBACK, MSR[0]=SLEEP (Xilinx DS791)
+                            // MSR[1]=LBACK, MSR[0]=SLEEP
                             // Also accept high-bit positions for compatibility
                             lback_reg <= reg_wdata[1] | reg_wdata[30];
                             sleep_reg <= reg_wdata[0] | reg_wdata[31];
@@ -304,8 +305,7 @@ module can_reg_file #(
                     end
 
                     ADDR_ESR: begin
-                        // W1C
-                        esr_reg <= esr_reg & ~masked_wdata;
+                        // W1C handled in dedicated esr_reg update below
                     end
 
                     ADDR_IER: begin
@@ -313,8 +313,7 @@ module can_reg_file #(
                     end
 
                     ADDR_ICR: begin
-                        // W1C for ISR
-                        isr_reg <= isr_reg & ~masked_wdata;
+                        // W1C handled in dedicated isr_reg update below
                     end
 
                     ADDR_TX_ID: begin
@@ -371,8 +370,27 @@ module can_reg_file #(
                     ADDR_AFMR4: afmr4 <= reg_wdata;
                     ADDR_AFIR4: afir4 <= reg_wdata;
 
-                    default: ;
+                    default: begin
+                    end
                 endcase
+            end
+
+            // Unified non-overwriting assignment for isr_reg
+            if (reg_wr_en && is_valid_addr && !is_readonly && (reg_addr == ADDR_SRR) && reg_wstrb[0] && reg_wdata[0]) begin
+                isr_reg <= 32'd0;
+            end else if (reg_wr_en && is_valid_addr && !is_readonly && (reg_addr == ADDR_ICR)) begin
+                isr_reg <= (isr_reg & ~masked_wdata) | isr_hw_set;
+            end else begin
+                isr_reg <= isr_reg | isr_hw_set;
+            end
+
+            // Unified non-overwriting assignment for esr_reg
+            if (reg_wr_en && is_valid_addr && !is_readonly && (reg_addr == ADDR_SRR) && reg_wstrb[0] && reg_wdata[0]) begin
+                esr_reg <= 32'd0;
+            end else if (reg_wr_en && is_valid_addr && !is_readonly && (reg_addr == ADDR_ESR)) begin
+                esr_reg <= (esr_reg & ~masked_wdata) | esr_hw_set;
+            end else begin
+                esr_reg <= esr_reg | esr_hw_set;
             end
 
             // Reading DW2 from RX FIFO triggers pop

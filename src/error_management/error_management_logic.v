@@ -30,7 +30,7 @@ module error_management_logic (
                    ((tec_count >= 9'd128) || (rec >= 8'd128)) ? 2'b01 : 2'b00;
     assign errwrn = (tec >= 8'd96) || (rec >= 8'd96);
 
-    always @(posedge can_clk) begin
+    always @(posedge can_clk or negedge can_rst_n_sync) begin
         if (!can_rst_n_sync) begin
             tec          <= 8'd0;
             tec_count    <= 9'd0;

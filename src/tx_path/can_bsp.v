@@ -165,7 +165,7 @@ module can_bsp (
     );
 
     // Calculate next RX CRC incrementally
-    function [14:0] next_crc15(input b, input [14:0] current_crc);
+    function automatic [14:0] next_crc15(input b, input [14:0] current_crc);
         reg d;
         begin
             d = b ^ current_crc[14];

@@ -2,8 +2,8 @@ SIM ?= iverilog
 VVP ?= vvp
 GTKWAVE ?= gtkwave
 
-TOP ?= tb_two_can_cores
-TB ?= sim/top/tb_two_can_cores.v
+TOP ?= tb_dual_can_verify
+TB ?= sim/top/tb_dual_can_verify.v
 RTL_SRCS ?= $(shell find src -type f -name '*.v' | sort)
 EXTRA_SRCS ?=
 
