@@ -8,20 +8,6 @@ clock -name "rd_clk" -period 50.0 -edge {0.0 25.0} -domain "CAN"
 
 reset -name "wr_rst_n_async" -value 0 -async
 reset -name "rd_rst_n_async" -value 0 -async
-reset -name "wr_rst_n_sync"   -value 0 -sync
-reset -name "rd_rst_n_sync"   -value 0 -sync
-
-set_parameter reset_synchronize_cells {reset_synchronizer}
-set_parameter sync_cells {two_ff_synchronizer}
-
-//reset_synchronizer -name "u_wr_reset.S2" \
-//                   -clock "wr_clk" \
-//                   -reset "wr_rst_n_async" \
-//                   -value 0
-//reset_synchronizer -name "u_rd_reset.S2" \
-//                   -clock "rd_clk" \
-//                   -reset "rd_rst_n_async" \
-//                   -value 0
 
 fifo -memory "u_fifo.u_can_fifo.fifo_mem"
 
