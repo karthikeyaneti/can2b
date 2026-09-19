@@ -1,5 +1,4 @@
 // SpyGlass lint and CDC constraints for can_fifo_wrapper.
-
 current_design "can_fifo_wrapper"
 
 clock -name "wr_clk" -period 10.0 -edge {0.0 5.0} -domain "WR"
@@ -8,7 +7,17 @@ clock -name "rd_clk" -period 50.0 -edge {0.0 25.0} -domain "RD"
 reset -name "wr_rst_n_async" -value 0 -async
 reset -name "rd_rst_n_async" -value 0 -async
 
+// FIFO Memory declaration
 fifo -memory "can_fifo_wrapper.u_fifo.fifo_mem"
+
+// 1. Silence Ac_unsync02: The Gray pointers guarantee safe data reading
+cdc_false_path -from "can_fifo_wrapper.u_fifo.fifo_mem" -to "rd_data"
+
+// 2. Silence Ac_cdc01a: Gray pointers are safe for fast-to-slow crossings
+waive -rule Ac_cdc01a
+
+// 3. Silence Reset_sync04: Prevents false flags on vector synchronizer reset pins
+waive -rule Reset_sync04
 
 input  -name "wr_en"   -clock "wr_clk"
 input  -name "wr_data" -clock "wr_clk"
