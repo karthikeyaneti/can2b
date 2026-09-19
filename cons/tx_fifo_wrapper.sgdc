@@ -23,7 +23,7 @@ reset_synchronizer -name "u_rd_reset.S2" \
 // The first stages of the Gray-pointer synchronizers are the intentional CDC
 // endpoints; the FIFO constraint covers the payload memory crossing.
 define_synchronizer -type single_flop \
-    [get_cells -hier -regexp {.*u_fifo/u_can_fifo/(wr_ptr_sync|rd_ptr_sync)/S1(_reg)?$}]
+    [get_cells -hier -regexp ".*u_fifo/u_can_fifo/(wr_ptr_sync|rd_ptr_sync)/S1(_reg)?$"]
 
 fifo -memory "u_fifo.u_can_fifo.fifo_mem"
 

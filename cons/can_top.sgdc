@@ -49,16 +49,16 @@ define_input_domain_type [get_ports can_rx] -domain NONE
 ## Reset synchronizers (reset_synchronizer module)
 ## First stage (S1) is the metastable flop; second stage (S2) is the output.
 define_synchronizer -type single_flop \
-    [get_cells -hier -regexp {.*reset_synchronizer.*/(S1|S1_reg)$}]
+    [get_cells -hier -regexp ".*reset_synchronizer.*/(S1|S1_reg)$"]
 
 ## Level (data) synchronizers (two_ff_synchronizer module)
 define_synchronizer -type single_flop \
-    [get_cells -hier -regexp {.*two_ff_synchronizer.*/(S1|S1_reg)$}]
+    [get_cells -hier -regexp ".*two_ff_synchronizer.*/(S1|S1_reg)$"]
 
 ## Pulse synchronizers (pulse_synchronizer module)
 ## The toggle register crosses domains; the dst_sync1/dst_sync2 chain is the sync.
 define_synchronizer -type single_flop \
-    [get_cells -hier -regexp {.*pulse_synchronizer.*/(dst_sync1|dst_sync1_reg)$}]
+    [get_cells -hier -regexp ".*pulse_synchronizer.*/(dst_sync1|dst_sync1_reg)$"]
 
 ## -------------------------------------------------------------------------
 ## 6. FIFO Gray pointer CDC constraints
