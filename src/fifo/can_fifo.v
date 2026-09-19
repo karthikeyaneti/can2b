@@ -57,7 +57,7 @@ module can_fifo #(
     wire [ADDR_WIDTH:0] wr_ptr_next = wr_ptr + 1'b1;
     wire [ADDR_WIDTH:0] wr_ptr_gray_next = wr_ptr_next ^ (wr_ptr_next >> 1);
 
-    always @(posedge wr_clk) begin
+    always @(posedge wr_clk or negedge wr_rst_n_sync) begin
         if (!wr_rst_n_sync) begin
             wr_ptr      <= {(ADDR_WIDTH + 1){1'b0}};
             wr_ptr_gray <= {(ADDR_WIDTH + 1){1'b0}};
@@ -68,7 +68,7 @@ module can_fifo #(
     end
 
     integer i;
-    always @(posedge wr_clk) begin
+    always @(posedge wr_clk or negedge wr_rst_n_sync) begin
         if (!wr_rst_n_sync) begin
             for (i = 0; i < FIFO_DEPTH; i = i + 1)
                 fifo_mem[i] <= {DATA_WIDTH{1'b0}};
@@ -80,7 +80,7 @@ module can_fifo #(
     wire [ADDR_WIDTH:0] rd_ptr_next = rd_ptr + 1'b1;
     wire [ADDR_WIDTH:0] rd_ptr_gray_next = rd_ptr_next ^ (rd_ptr_next >> 1);
 
-    always @(posedge rd_clk) begin
+    always @(posedge rd_clk or negedge rd_rst_n_sync) begin
         if (!rd_rst_n_sync) begin
             rd_ptr      <= {(ADDR_WIDTH + 1){1'b0}};
             rd_ptr_gray <= {(ADDR_WIDTH + 1){1'b0}};
