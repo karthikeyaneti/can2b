@@ -35,7 +35,7 @@ module can_fifo #(
     two_ff_synchronizer #(
         .WIDTH(ADDR_WIDTH + 1),
         .INIT_VALUE({(ADDR_WIDTH + 1){1'b0}}),
-        .ASYNC_RESET(0)
+        .ASYNC_RESET(1)
     ) wr_ptr_sync (
         .clk(rd_clk),
         .rst_n_sync(rd_rst_n_sync),
@@ -46,7 +46,7 @@ module can_fifo #(
     two_ff_synchronizer #(
         .WIDTH(ADDR_WIDTH + 1),
         .INIT_VALUE({(ADDR_WIDTH + 1){1'b0}}),
-        .ASYNC_RESET(0)
+        .ASYNC_RESET(1)
     ) rd_ptr_sync (
         .clk(wr_clk),
         .rst_n_sync(wr_rst_n_sync),
@@ -67,12 +67,8 @@ module can_fifo #(
         end
     end
 
-    integer i;
-    always @(posedge wr_clk or negedge wr_rst_n_sync) begin
-        if (!wr_rst_n_sync) begin
-            for (i = 0; i < FIFO_DEPTH; i = i + 1)
-                fifo_mem[i] <= {DATA_WIDTH{1'b0}};
-        end else if (wr_en && !full) begin
+    always @(posedge wr_clk) begin
+        if (wr_en && !full) begin
             fifo_mem[wr_ptr[ADDR_WIDTH-1:0]] <= wr_data;
         end
     end

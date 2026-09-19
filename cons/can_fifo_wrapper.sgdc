@@ -3,12 +3,12 @@
 current_design "can_fifo_wrapper"
 
 clock -name "wr_clk" -period 10.0 -edge {0.0 5.0} -domain "WR"
-clock -name "rd_clk" -period 41.6667 -edge {0.0 20.8333} -domain "RD"
+clock -name "rd_clk" -period 50.0 -edge {0.0 25.0} -domain "RD"
 
 reset -name "wr_rst_n_async" -value 0 -async
 reset -name "rd_rst_n_async" -value 0 -async
 
-fifo -memory "u_fifo.fifo_mem"
+fifo -memory "can_fifo_wrapper.u_fifo.fifo_mem"
 
 input  -name "wr_en"   -clock "wr_clk"
 input  -name "wr_data" -clock "wr_clk"
