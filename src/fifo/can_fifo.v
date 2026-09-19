@@ -68,7 +68,7 @@ module can_fifo #(
     end
 
     integer i;
-    always @(posedge wr_clk) begin
+    always @(posedge wr_clk or negedge wr_rst_n_sync) begin
         if (!wr_rst_n_sync) begin
             for (i = 0; i < FIFO_DEPTH; i = i + 1)
                 fifo_mem[i] <= {DATA_WIDTH{1'b0}};
