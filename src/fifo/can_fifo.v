@@ -35,7 +35,7 @@ module can_fifo #(
     two_ff_synchronizer #(
         .WIDTH(ADDR_WIDTH + 1),
         .INIT_VALUE({(ADDR_WIDTH + 1){1'b0}}),
-        .ASYNC_RESET(1)
+        .ASYNC_RESET(0)
     ) wr_ptr_sync (
         .clk(rd_clk),
         .rst_n_sync(rd_rst_n_sync),
@@ -46,7 +46,7 @@ module can_fifo #(
     two_ff_synchronizer #(
         .WIDTH(ADDR_WIDTH + 1),
         .INIT_VALUE({(ADDR_WIDTH + 1){1'b0}}),
-        .ASYNC_RESET(1)
+        .ASYNC_RESET(0)
     ) rd_ptr_sync (
         .clk(wr_clk),
         .rst_n_sync(wr_rst_n_sync),

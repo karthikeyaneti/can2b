@@ -9,11 +9,7 @@ clock -name "rd_clk" -period 50.0 -edge {0.0 25.0} -domain "CAN"
 reset -name "wr_rst_n_async" -value 0 -async
 reset -name "rd_rst_n_async" -value 0 -async
 
-fifo -memory "tx_fifo_wrapper.u_fifo.u_can_fifo.fifo_mem" \
-     -wr_clock "wr_clk" \
-     -rd_clock "rd_clk" \
-     -empty "tx_fifo_wrapper.u_fifo.u_can_fifo.empty" \
-     -full "tx_fifo_wrapper.u_fifo.u_can_fifo.full"
+fifo -memory "tx_fifo_wrapper.u_fifo.u_can_fifo.fifo_mem"
 
 input  -name "tx_wr_en"   -clock "wr_clk"
 input  -name "tx_wr_id"   -clock "wr_clk"

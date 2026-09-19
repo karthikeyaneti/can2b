@@ -75,23 +75,6 @@ incremental_db/
 *.chk
 .dc.checkpoints/
 
-# ---------- Flow run directories (scratch by convention) ----------
-flow/*/run/
-flow/*/logs/
-
-# ---------- Force-keep signed-off evidence (checked in on purpose) ----------
-!flow/spyglass_lint/reports/
-!flow/spyglass_lint/reports/**
-!flow/spyglass_cdc/reports/
-!flow/spyglass_cdc/reports/**
-!flow/dc/reports/
-!flow/dc/reports/**
-!flow/primetime/reports/
-!flow/primetime/reports/**
-!flow/vclp/reports/
-!flow/vclp/reports/**
-!flow/fpga/bitstreams/*.rpt
-
 # ---------- Editor / OS ----------
 .DS_Store
 *.swp
@@ -106,3 +89,4 @@ flow/*/logs/
 media/
 waveforms/
 docs/
+flow/
