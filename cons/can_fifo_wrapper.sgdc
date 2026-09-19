@@ -11,7 +11,7 @@ reset -name "rd_rst_n_async" -value 0 -async
 fifo -memory "can_fifo_wrapper.u_fifo.fifo_mem"
 
 // 1. Silence Ac_unsync02: The Gray pointers guarantee safe data reading
-cdc_false_path -from "can_fifo_wrapper.u_fifo.fifo_mem" -to "rd_data"
+cdc_false_path -from "can_fifo_wrapper.u_fifo.fifo_mem" -from_type flop -to "rd_data" -to_type port
 
 // 2. Silence Ac_cdc01a: Gray pointers are safe for fast-to-slow crossings
 waive -rule Ac_cdc01a
