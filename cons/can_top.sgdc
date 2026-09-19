@@ -67,16 +67,6 @@ define_synchronizer -type single_flop \
 ## asynchronous sources; their synchronized versions are in wr_ptr_sync /
 ## rd_ptr_sync (two_ff_synchronizer instances inside can_fifo).
 
-## Declare FIFO write-pointer Gray as crossing from CAN domain to APB domain.
-define_cdc_path -from [get_pins -hier -regexp {.*u_can_fifo/wr_ptr_gray_reg.*/Q$}] \
-                -to   [get_pins -hier -regexp {.*wr_ptr_sync.*/S1_reg.*/D$}] \
-                -type gray_code
-
-## Declare FIFO read-pointer Gray as crossing from APB domain to CAN domain.
-define_cdc_path -from [get_pins -hier -regexp {.*u_can_fifo/rd_ptr_gray_reg.*/Q$}] \
-                -to   [get_pins -hier -regexp {.*rd_ptr_sync.*/S1_reg.*/D$}] \
-                -type gray_code
-
 ## -------------------------------------------------------------------------
 ## 7. Waive known-safe paths
 ## -------------------------------------------------------------------------

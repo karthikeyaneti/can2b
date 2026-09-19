@@ -8,6 +8,8 @@ clock -name "rd_clk" -period 50.0 -edge {0.0 25.0} -domain "CAN"
 
 reset -name "wr_rst_n_async" -value 0 -async
 reset -name "rd_rst_n_async" -value 0 -async
+reset -name "wr_rst_n_sync"   -value 0 -sync
+reset -name "rd_rst_n_sync"   -value 0 -sync
 
 reset_synchronizer -name "u_wr_reset.S2" \
                    -clock "wr_clk" \
@@ -18,7 +20,12 @@ reset_synchronizer -name "u_rd_reset.S2" \
                    -reset "rd_rst_n_async" \
                    -value 0
 
-fifo -memory "u_fifo.u_can_fifo"
+// The first stages of the Gray-pointer synchronizers are the intentional CDC
+// endpoints; the FIFO constraint covers the payload memory crossing.
+define_synchronizer -type single_flop \
+    [get_cells -hier -regexp {.*u_fifo/u_can_fifo/(wr_ptr_sync|rd_ptr_sync)/S1(_reg)?$}]
+
+fifo -memory "u_fifo.u_can_fifo.fifo_mem"
 
 input  -name "tx_wr_en"   -clock "wr_clk"
 input  -name "tx_wr_id"   -clock "wr_clk"

@@ -2,7 +2,8 @@
 
 module two_ff_synchronizer #(
     parameter WIDTH = 1,
-    parameter [WIDTH-1:0] INIT_VALUE = {WIDTH{1'b1}}
+    parameter [WIDTH-1:0] INIT_VALUE = {WIDTH{1'b1}},
+    parameter ASYNC_RESET = 1
 ) (
     input wire clk,
     input wire rst_n_sync,
@@ -13,15 +14,29 @@ module two_ff_synchronizer #(
     (* ASYNC_REG = "TRUE" *) reg [WIDTH-1:0] S1;
     (* ASYNC_REG = "TRUE" *) reg [WIDTH-1:0] S2;
 
-    always @(posedge clk or negedge rst_n_sync) begin
-        if (!rst_n_sync) begin
-            S1 <= INIT_VALUE;
-            S2 <= INIT_VALUE;
-        end else begin
-            S1 <= async_in;
-            S2 <= S1;
+    generate
+        if (ASYNC_RESET) begin : g_async_reset
+            always @(posedge clk or negedge rst_n_sync) begin
+                if (!rst_n_sync) begin
+                    S1 <= INIT_VALUE;
+                    S2 <= INIT_VALUE;
+                end else begin
+                    S1 <= async_in;
+                    S2 <= S1;
+                end
+            end
+        end else begin : g_sync_reset
+            always @(posedge clk) begin
+                if (!rst_n_sync) begin
+                    S1 <= INIT_VALUE;
+                    S2 <= INIT_VALUE;
+                end else begin
+                    S1 <= async_in;
+                    S2 <= S1;
+                end
+            end
         end
-    end
+    endgenerate
 
     assign sync_out = S2;
 endmodule
