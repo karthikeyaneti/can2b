@@ -439,11 +439,15 @@ module can_bsp (
                     if (bit_tick) begin
                         if (insert_stuff) begin
                             insert_stuff <= 1'b0;
-                            // The stuffed bit is the complement of the last
-                            // transmitted data bit. The next data bit is
-                            // selected by the normal FSM below.
-                            stuff_count    <= 3'd1;
-                            last_stuff_bit <= ~last_stuff_bit;
+                            // Include the next data bit in the run after the
+                            // inserted bit; raw_bit already selects that bit.
+                            if (raw_bit == ~last_stuff_bit) begin
+                                stuff_count    <= 3'd2;
+                                last_stuff_bit <= ~last_stuff_bit;
+                            end else begin
+                                stuff_count    <= 3'd1;
+                                last_stuff_bit <= raw_bit;
+                            end
                         end else begin
                             case (state)
                                 ST_SOF: begin
@@ -665,8 +669,11 @@ module can_bsp (
                             endcase
 
                             if (stuff_en && (stuff_count == 3'd5) &&
-                                (raw_bit == last_stuff_bit))
+                                (raw_bit == last_stuff_bit)) begin
                                 insert_stuff <= 1'b1;
+                                stuff_count <= 3'd5;
+                                last_stuff_bit <= raw_bit;
+                            end
 
                         end
                     end
