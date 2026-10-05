@@ -102,19 +102,17 @@ also suitable for deterministic compilation:
 8. `src/bit_timing_engine/can_bit_timing_logic.v`
 9. `src/bit_timing_engine/can_btl_top.v`
 10. `src/tx_path/tx_fifo.v`
-11. `src/tx_path/bit_stuff.v`
-12. `src/tx_path/crc_gen.v`
-13. `src/tx_path/can_bsp.v`
-14. `src/tx_path/can_tx_path_core.v`
-15. `src/tx_path/tx_path_top.v`
-16. `src/rx_path/rx_fifo.v`
-17. `src/rx_path/bit_destuff.v`
-18. `src/rx_path/crc_check.v`
-19. `src/rx_path/acceptance_filter.v`
-20. `src/rx_path/rx_path_top.v`
-21. `src/error_management/error_management_logic.v`
-22. `src/can_channel/can_channel_core.v`
-23. `src/top/can_top.v`
+11. `src/tx_path/crc_gen.v`
+12. `src/tx_path/can_bsp.v`
+13. `src/tx_path/can_tx_path_core.v`
+14. `src/rx_path/rx_fifo.v`
+15. `src/rx_path/bit_destuff.v`
+16. `src/rx_path/crc_check.v`
+17. `src/rx_path/acceptance_filter.v`
+18. `src/rx_path/rx_path_top.v`
+19. `src/error_management/error_management_logic.v`
+20. `src/can_channel/can_channel_core.v`
+21. `src/top/can_top.v`
 
 No RTL define is required. The default Makefile uses Icarus Verilog with
 `-g2012 -Wall -Wimplicit -Wportbind -Wselect-range` and adds
@@ -137,7 +135,6 @@ No RTL define is required. The default Makefile uses Icarus Verilog with
 | `rx_fifo` | `ADDR_WIDTH` | 4 | Integer >= 2 | RX FIFO depth; payload remains 128 bits. |
 | `rx_path_top` | `FIFO_ADDR_WIDTH` | 4 | Integer >= 2 | RX FIFO pointer/depth selection. |
 | `tx_fifo` | `ADDR_WIDTH` | 4 | Integer >= 2 | TX FIFO depth; payload remains 128 bits. |
-| `tx_path_top` | `FIFO_ADDR_WIDTH` | 4 | Integer >= 2 | TX FIFO pointer/depth selection. |
 | `can_tx_path_core` | `FIFO_ADDR_WIDTH` | 2 | Integer >= 2 | Composed TX FIFO pointer/depth; top passes 2. |
 | `two_ff_synchronizer` | `WIDTH` | 1 | Positive integer | Number of synchronized bits. |
 | `two_ff_synchronizer` | `INIT_VALUE` | all ones | Exactly `WIDTH` bits | Reset value of both synchronizer stages. |
