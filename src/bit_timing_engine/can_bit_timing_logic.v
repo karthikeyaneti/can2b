@@ -16,7 +16,7 @@ module can_bit_timing_logic (
     input  wire       tx_active,    // from BSP
     input  wire       tx_bit,       // bit being transmitted
 
-    output reg        hard_sync_pulse,
+    output wire       hard_sync_pulse,
     output reg        resync_pulse,
     output reg        sample_point,
     output reg        sampled_bit,
@@ -66,16 +66,27 @@ module can_bit_timing_logic (
 
     wire dominant_edge = (rx_sync_q == RECESSIVE) && (rx_sync == DOMINANT);
 
+    reg tx_active_q;
+    always @(posedge can_clk or negedge can_rst_n_sync) begin
+        if (!can_rst_n_sync) tx_active_q <= 1'b0;
+        else tx_active_q <= tx_active;
+    end
+
+    reg [1:0] present_seg;
+
+    wire tx_sof_start = tx_active && !tx_active_q;
+    wire rx_sof_edge  = dominant_edge && (bus_idle || present_seg == SEG_IDLE) && !(tx_active && (tx_bit == DOMINANT));
+    wire hard_sync_now = tx_sof_start || rx_sof_edge;
+    assign hard_sync_pulse = hard_sync_now;
+
     wire qualified_edge = dominant_edge &&
                           (sampled_bit == RECESSIVE) &&
                           !(tx_active && (tx_bit == DOMINANT));
 
-    wire sync_edge = bus_idle ? dominant_edge : qualified_edge;
-
+    wire sync_edge = qualified_edge;
     wire new_edge = sync_edge;
     wire edge_available = edge_pending || new_edge;
 
-    reg [1:0] present_seg;
     reg [4:0] tq_count;      // TQs already completed in this segment
     reg [4:0] cur_tseg1;
     reg [4:0] cur_tseg2;
@@ -107,24 +118,18 @@ module can_bit_timing_logic (
         if (!can_rst_n_sync || config_mode) begin
             rx_sync_q    <= RECESSIVE;
             edge_pending <= 1'b0;
+        end else if (hard_sync_now) begin
+            rx_sync_q    <= rx_sync;
+            edge_pending <= 1'b0;
         end else begin
             rx_sync_q <= rx_sync;
             if (new_edge) begin
-                // if an old pending edge got consumed this same cycle,
-                // this new one takes its place rather than being dropped
                 edge_pending <= (consume_edge && !edge_pending) ? 1'b0 : 1'b1;
             end else if (consume_edge) begin
                 edge_pending <= 1'b0;
             end
         end
     end
-
-    // Hard synchronization: only on a Recessive→Dominant edge while bus_idle,
-    // or when in SEG_IDLE waiting for first edge. ISO 11898-1 §10.3.6.
-    // Do NOT trigger on rx_sync==DOMINANT level — that causes repeated re-sync
-    // while a long dominant is being received.
-    wire hard_sync_trigger = (bus_idle && dominant_edge) ||
-                             ((present_seg == SEG_IDLE) && (dominant_edge || edge_available));
 
     reg [1:0] next_seg;
     reg [4:0] next_tq_count;
@@ -133,7 +138,6 @@ module can_bit_timing_logic (
     reg       next_sync_done_this_bit;
     reg       next_sample_point;
     reg       next_sampled_bit;
-    reg       next_hard_sync_pulse;
     reg       next_resync_pulse;
     reg       next_bit_tick;
 
@@ -145,44 +149,27 @@ module can_bit_timing_logic (
         next_sync_done_this_bit = sync_done_this_bit;
         next_sample_point       = 1'b0;
         next_sampled_bit        = sampled_bit;
-        next_hard_sync_pulse    = 1'b0;
         next_resync_pulse       = 1'b0;
         next_bit_tick           = 1'b0;
 
         if (tq_tick) begin
-            if (hard_sync_trigger) begin
-                next_seg                = SEG_SYNC;
-                next_tq_count           = 5'd0;
-                next_cur_tseg1          = tseg1_eff;
-                next_cur_tseg2          = tseg2_eff;
-                next_sync_done_this_bit = 1'b0;
-                next_hard_sync_pulse    = 1'b1;
-            end else begin
-                case (present_seg)
-                    SEG_IDLE: begin
-                        // IDLE state -> waiting for hard synchronization
-                    end
+            case (present_seg)
+                SEG_IDLE: begin
+                    // IDLE state -> waiting for hard_sync_now
+                end
 
-                    SEG_SYNC: begin
-                        next_seg                = SEG_TSEG1;
-                        next_tq_count           = 5'd0;
-                        next_sync_done_this_bit = 1'b0;
-                    end
+                SEG_SYNC: begin
+                    next_seg                = SEG_TSEG1;
+                    next_tq_count           = 5'd0;
+                    next_sync_done_this_bit = 1'b0;
+                end
 
-                    SEG_TSEG1: begin
-                        if (edge_available && !sync_done_this_bit) begin
-                            next_cur_tseg1          = adjusted_tseg1;
-                            next_sync_done_this_bit = 1'b1;
-                            next_resync_pulse       = 1'b1;
-                            if (tq_elapsed >= adjusted_tseg1) begin
-                                next_sample_point = 1'b1;
-                                next_sampled_bit  = rx_sync;
-                                next_seg          = SEG_TSEG2;
-                                next_tq_count     = 5'd0;
-                            end else begin
-                                next_tq_count = tq_elapsed;
-                            end
-                        end else if (tq_elapsed >= cur_tseg1) begin
+                SEG_TSEG1: begin
+                    if (edge_available && !sync_done_this_bit) begin
+                        next_cur_tseg1          = adjusted_tseg1;
+                        next_sync_done_this_bit = 1'b1;
+                        next_resync_pulse       = 1'b1;
+                        if (tq_elapsed >= adjusted_tseg1) begin
                             next_sample_point = 1'b1;
                             next_sampled_bit  = rx_sync;
                             next_seg          = SEG_TSEG2;
@@ -190,39 +177,52 @@ module can_bit_timing_logic (
                         end else begin
                             next_tq_count = tq_elapsed;
                         end
+                    end else if (tq_elapsed >= cur_tseg1) begin
+                        next_sample_point = 1'b1;
+                        next_sampled_bit  = rx_sync;
+                        next_seg          = SEG_TSEG2;
+                        next_tq_count     = 5'd0;
+                    end else begin
+                        next_tq_count = tq_elapsed;
                     end
+                end
 
-                    SEG_TSEG2: begin
-                        if (edge_available && !sync_done_this_bit) begin
-                            next_cur_tseg2          = adjusted_tseg2;
-                            next_sync_done_this_bit = 1'b1;
-                            next_resync_pulse       = 1'b1;
-                            if (tq_elapsed >= adjusted_tseg2) begin
-                                next_bit_tick    = 1'b1;
-                                next_seg         = SEG_SYNC;
-                                next_tq_count    = 5'd0;
-                                next_cur_tseg1   = tseg1_eff;
-                                next_cur_tseg2   = tseg2_eff;
-                            end else begin
-                                next_tq_count = tq_elapsed;
-                            end
-                        end else if (tq_elapsed >= cur_tseg2) begin
+                SEG_TSEG2: begin
+                    if (edge_available && !sync_done_this_bit) begin
+                        next_cur_tseg2          = adjusted_tseg2;
+                        next_sync_done_this_bit = 1'b1;
+                        next_resync_pulse       = 1'b1;
+                        if (tq_elapsed >= adjusted_tseg2) begin
                             next_bit_tick    = 1'b1;
-                            next_seg         = SEG_SYNC;
-                            next_tq_count    = 5'd0;
                             next_cur_tseg1   = tseg1_eff;
                             next_cur_tseg2   = tseg2_eff;
+                            next_tq_count    = 5'd0;
+                            if (bus_idle && !tx_active)
+                                next_seg = SEG_IDLE;
+                            else
+                                next_seg = SEG_SYNC;
                         end else begin
                             next_tq_count = tq_elapsed;
                         end
+                    end else if (tq_elapsed >= cur_tseg2) begin
+                        next_bit_tick    = 1'b1;
+                        next_cur_tseg1   = tseg1_eff;
+                        next_cur_tseg2   = tseg2_eff;
+                        next_tq_count    = 5'd0;
+                        if (bus_idle && !tx_active)
+                            next_seg = SEG_IDLE;
+                        else
+                            next_seg = SEG_SYNC;
+                    end else begin
+                        next_tq_count = tq_elapsed;
                     end
+                end
 
-                    default: begin
-                        next_seg      = SEG_IDLE;
-                        next_tq_count = 5'd0;
-                    end
-                endcase
-            end
+                default: begin
+                    next_seg      = SEG_IDLE;
+                    next_tq_count = 5'd0;
+                end
+            endcase
         end
     end
 
@@ -235,7 +235,16 @@ module can_bit_timing_logic (
             sync_done_this_bit  <= 1'b0;
             sample_point        <= 1'b0;
             sampled_bit         <= RECESSIVE;
-            hard_sync_pulse     <= 1'b0;
+            resync_pulse        <= 1'b0;
+            bit_tick            <= 1'b0;
+        end else if (hard_sync_now) begin
+            present_seg         <= SEG_SYNC;
+            tq_count            <= 5'd0;
+            cur_tseg1           <= tseg1_eff;
+            cur_tseg2           <= tseg2_eff;
+            sync_done_this_bit  <= 1'b0;
+            sample_point        <= 1'b0;
+            sampled_bit         <= DOMINANT;
             resync_pulse        <= 1'b0;
             bit_tick            <= 1'b0;
         end else begin
@@ -246,7 +255,6 @@ module can_bit_timing_logic (
             sync_done_this_bit  <= next_sync_done_this_bit;
             sample_point        <= next_sample_point;
             sampled_bit         <= next_sampled_bit;
-            hard_sync_pulse     <= next_hard_sync_pulse;
             resync_pulse        <= next_resync_pulse;
             bit_tick            <= next_bit_tick;
         end

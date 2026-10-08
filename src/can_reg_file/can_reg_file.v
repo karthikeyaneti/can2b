@@ -221,7 +221,7 @@ module can_reg_file #(
             brp           <= 8'd0;
             tseg1         <= 4'd5;
             tseg2         <= 3'd2;
-            sjw           <= 2'd0;
+            sjw           <= 2'd1;
 
             tx_wr_en      <= 1'b0;
             tx_id         <= 11'd0;
@@ -446,31 +446,32 @@ module can_reg_file #(
                         // DS791 Table 19 (Xilinx standard bit mapping):
                         // [31]=CONFIG, [30]=LBACK, [29]=SLEEP, [28]=NORMAL, [27]=BIDLE, [26]=BBSY,
                         // [25]=ERRWRN, [24:23]=ESTAT, [22]=TXBFLL, [21]=TXFLL, [20]=ACFBSY
-                        reg_rdata[31]    = config_mode;
-                        reg_rdata[30]    = lback_reg && cen_reg;
-                        reg_rdata[29]    = sleep_reg && cen_reg;
-                        reg_rdata[28]    = cen_reg && !lback_reg && !sleep_reg; // NORMAL
-                        reg_rdata[27]    = bus_idle;
-                        reg_rdata[26]    = bus_busy;
-                        reg_rdata[25]    = error_warning;
-                        reg_rdata[24:23] = estat;
-                        reg_rdata[22]    = tx_hpb_full;
-                        reg_rdata[21]    = tx_fifo_full;
-                        reg_rdata[20]    = acfb_busy;
-                        reg_rdata[19:12] = 8'd0;
-
-                        // Low-order mirror for convenience
-                        reg_rdata[0]     = config_mode;
-                        reg_rdata[1]     = lback_reg && cen_reg;
-                        reg_rdata[2]     = sleep_reg && cen_reg;
-                        reg_rdata[3]     = cen_reg && !lback_reg && !sleep_reg;
-                        reg_rdata[4]     = bus_idle;
-                        reg_rdata[5]     = bus_busy;
-                        reg_rdata[6]     = error_warning;
-                        reg_rdata[8:7]   = estat;
-                        reg_rdata[9]     = tx_hpb_full;
-                        reg_rdata[10]    = tx_fifo_full;
-                        reg_rdata[11]    = acfb_busy;
+                        reg_rdata = {
+                            config_mode,
+                            (lback_reg && cen_reg),
+                            (sleep_reg && cen_reg),
+                            (cen_reg && !lback_reg && !sleep_reg),
+                            bus_idle,
+                            bus_busy,
+                            error_warning,
+                            estat,
+                            tx_hpb_full,
+                            tx_fifo_full,
+                            acfb_busy,
+                            8'd0,
+                            // Low-order mirror for convenience
+                            acfb_busy,
+                            tx_fifo_full,
+                            tx_hpb_full,
+                            estat,
+                            error_warning,
+                            bus_busy,
+                            bus_idle,
+                            (cen_reg && !lback_reg && !sleep_reg),
+                            (sleep_reg && cen_reg),
+                            (lback_reg && cen_reg),
+                            config_mode
+                        };
                     end
 
                     ADDR_ISR: begin

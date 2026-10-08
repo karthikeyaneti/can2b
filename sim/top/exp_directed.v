@@ -49,7 +49,7 @@ module exp;
     #200; rstn=1; #500;
     if (scen==0) begin
       $display("SCEN0: register reset values (node0)");
-      show0("SRR",12'h000); show0("MSR",12'h004); show0("BRPR",12'h008); $display("t=%0t before BTR",$time); show0("BTR",12'h00C); $display("t=%0t after BTR",$time);
+      show0("SRR",12'h000); show0("MSR",12'h004); show0("BRPR",12'h008); show0("BTR",12'h00C);
       show0("ECR",12'h010); show0("ESR",12'h014); show0("SR",12'h018); show0("ISR",12'h01C);
       show0("IER",12'h020); show0("AFR",12'h060);
       show0("TX_ID(wo)",12'h030); show0("ICR",12'h024); show0("unmapped 0x028",12'h028);
@@ -86,7 +86,7 @@ module exp;
       wr0(12'h000, 32'h2); wr1(12'h000, 32'h2);
       #2000;
       wr0(12'h030, 32'h24600000); wr0(12'h034, 32'h10000000); if(!$value$plusargs("DATA=%h", dv)) dv=32'h5A; wr0(12'h038, dv); wr0(12'h03C, 0);
-      #500000; if (scen==22) $finish;
+      #2500000; if (scen==22) $finish;
       $display("  sof_cnt=%0d tx_err=%0d tx_ok=%0d", sof_cnt, err_cnt, succ_cnt);
       show0("n0 ISR",12'h01C); show1("n1 ISR",12'h01C);
       show0("n0 RX_ID",12'h050); show1("n1 RX_ID",12'h050);

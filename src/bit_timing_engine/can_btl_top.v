@@ -46,6 +46,7 @@ module can_btl_top (
         .can_clk        (can_clk),
         .can_rst_n_sync (can_rst_n_sync),
         .config_mode    (config_mode),
+        .hard_sync      (hard_sync_pulse),
         .brp            (brp),
         .tq_tick        (tq_tick)
     );

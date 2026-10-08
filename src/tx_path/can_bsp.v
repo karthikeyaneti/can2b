@@ -711,8 +711,9 @@ module can_bsp (
                     insert_stuff <= 1'b0;
                     if (bit_tick) begin
                         if (bit_cnt == 6'd0) begin
-                            state   <= ST_IFS;
-                            bit_cnt <= 6'd2;
+                            state    <= ST_IFS;
+                            bit_cnt  <= 6'd2;
+                            tx_rd_en <= 1'b1;
                         end else begin
                             bit_cnt <= bit_cnt - 6'd1;
                         end
@@ -725,7 +726,6 @@ module can_bsp (
                     if (bit_tick) begin
                         if (bit_cnt == 6'd0) begin
                             tx_success_pulse <= 1'b1;
-                            tx_rd_en         <= 1'b1;
                             tx_active        <= 1'b0;
                             bus_idle         <= 1'b1;
                             tx_busy          <= 1'b0;

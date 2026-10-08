@@ -5,6 +5,7 @@ module can_baud_gen (
     input wire can_rst_n_sync,
 
     input wire config_mode,
+    input wire hard_sync,
     input wire [7:0] brp,
 
     output reg tq_tick
@@ -16,7 +17,7 @@ module can_baud_gen (
         if (!can_rst_n_sync) begin
             tq_tick  <= 1'b0;
             tq_count <= 8'd0;
-        end else if (config_mode) begin
+        end else if (config_mode || hard_sync) begin
             tq_tick  <= 1'b0;
             tq_count <= 8'd0;
         end else begin
