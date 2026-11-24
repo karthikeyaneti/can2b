@@ -627,7 +627,7 @@ module can_bsp (
                                 end
 
                                 ST_DATA: begin
-                                    if (bit_cnt + 6'd1 >= total_data_bits[5:0]) begin
+                                    if (bit_cnt + 6'd1 >= total_data_bits) begin
                                         state   <= ST_CRC_SEQ;
                                         bit_cnt <= 6'd14;
                                         if (crc_value[14] == last_stuff_bit)
@@ -912,7 +912,7 @@ module can_bsp (
                         rx_data_reg[63 - rx_bit_cnt] <= destuffed_bit_out;
                         rx_crc_calc                  <= next_crc15(destuffed_bit_out, rx_crc_calc);
 
-                        if (rx_bit_cnt + 6'd1 >= rx_total_data_bits[5:0]) begin
+                        if (rx_bit_cnt + 6'd1 >= rx_total_data_bits) begin
                             rx_state   <= RX_CRC_SEQ;
                             rx_bit_cnt <= 6'd14;
                         end else begin
